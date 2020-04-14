@@ -166,6 +166,10 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 			q->io |= MIDI_OUTPUT;
 		}
 		if (q->io && q->enable) q->enable(q);
+		if (strstr(q->name,"Launchpad") != NULL && q->io == MIDI_INPUT|MIDI_OUTPUT){
+			lp_port = q->num;
+			log_appendf(3,"LP found in port %d",lp_port);
+		}
 	}
 
 	cfg_free(&cfg);
@@ -834,12 +838,14 @@ void midi_received_cb(struct midi_port *src, unsigned char *data, unsigned int l
 
 	cmd = ((*data) & 0xF0) >> 4;
 
-	//Redirect LP controller events to own handler
+	/* Redirect LP controller events to own handler */
 	if (strstr(src->name,"Launchpad") != NULL) {
 		if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
 			midi_event_launchpad(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
 		} else if (cmd == 0x9) {
 			midi_event_launchpad(MIDI_NOTEON, data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xB) {
+			midi_event_launchpad_controller(data[0] & 15, data[1], data[2]);
 		}
 	} else {
 		if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
@@ -891,7 +897,15 @@ static void midi_push_event(Uint8 code, void *data1, size_t data1_len, int alloc
 void midi_event_launchpad(enum midi_note mnstatus, int channel, int note, int velocity)
 {
 	int st[4] = { mnstatus, channel, note, velocity };
+	
 	midi_push_event(SCHISM_EVENT_MIDI_LP, st, sizeof(st), 1);
+}
+
+void midi_event_launchpad_controller(int channel, int param, int value)
+{
+	int st[4] = { value, channel, param };
+
+	midi_push_event(SCHISM_EVENT_MIDI_LP_CONTROLLER, st, sizeof(st), 1);
 }
 
 void midi_event_note(enum midi_note mnstatus, int channel, int note, int velocity)
@@ -968,6 +982,29 @@ int midi_engine_handle_event(void *ev)
 	}
 
 	switch (e->user.code) {
+	case SCHISM_EVENT_MIDI_LP:
+		if (st[0] == MIDI_NOTEON) {
+			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])+1] = 1;
+			log_appendf(3,"LP button down %d", lp_grid_button_hex_to_int(st[2]));
+			if (lp_is_hex_code_grid_button(st[2]) == 1){
+				song_start_at_order(st[2], 0);
+			} else {
+				if (st[2] == LP_BTN_SCENE_H){
+					if (song_get_mode() == MODE_PLAYING){
+						song_stop();
+					} else if (song_get_mode() == MODE_STOPPED){
+						song_start_at_order(song_get_current_order(),0);
+					}
+				}
+			}
+		} else {
+			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])+1] = 0;
+			log_appendf(3,"LP button up %d", lp_grid_button_hex_to_int(st[2]));
+		}
+		break;
+	case SCHISM_EVENT_MIDI_LP_CONTROLLER:
+		/* Launchpad top row buttons */
+		break;
 	case SCHISM_EVENT_MIDI_NOTE:
 		if (st[0] == MIDI_NOTEON) {
 			kk.state = KEY_PRESS;

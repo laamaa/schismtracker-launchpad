@@ -125,6 +125,7 @@ enum midi_note {
 	MIDI_KEYPRESS,
 };
 void midi_event_launchpad(enum midi_note mnstatus, int channel, int note, int velocity);
+void midi_event_launchpad_controller(int channel, int param, int value);
 void midi_event_note(enum midi_note mnstatus, int channel, int note, int velocity);
 void midi_event_controller(int channel, int param, int value);
 void midi_event_program(int channel, int value);
