@@ -39,6 +39,8 @@
 
 #include "dmoz.h"
 
+#include "launchpad.h"
+
 #include <ctype.h>
 #include <assert.h>
 
@@ -831,35 +833,45 @@ void midi_received_cb(struct midi_port *src, unsigned char *data, unsigned int l
 	}
 
 	cmd = ((*data) & 0xF0) >> 4;
-	if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
-		midi_event_note(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
-	} else if (cmd == 0x9) {
-		midi_event_note(MIDI_NOTEON, data[0] & 15, data[1], data[2]);
-	} else if (cmd == 0xA) {
-		midi_event_note(MIDI_KEYPRESS, data[0] & 15, data[1], data[2]);
-	} else if (cmd == 0xB) {
-		midi_event_controller(data[0] & 15, data[1], data[2]);
-	} else if (cmd == 0xC) {
-		midi_event_program(data[0] & 15, data[1]);
-	} else if (cmd == 0xD) {
-		midi_event_aftertouch(data[0] & 15, data[1]);
-	} else if (cmd == 0xE) {
-		midi_event_pitchbend(data[0] & 15, data[1]);
-	} else if (cmd == 0xF) {
-		switch ((*data & 15)) {
-		case 0: /* sysex */
-			if (len <= 2) return;
-			midi_event_sysex(data+1, len-2);
-			break;
-		case 6: /* tick */
-			midi_event_tick();
-			break;
-		default:
-			/* something else */
-			midi_event_system((*data & 15), (data[1])
-					| (data[2] << 8)
-					| (data[3] << 16));
-			break;
+
+	//Redirect LP controller events to own handler
+	if (strstr(src->name,"Launchpad") != NULL) {
+		if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
+			midi_event_launchpad(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
+		} else if (cmd == 0x9) {
+			midi_event_launchpad(MIDI_NOTEON, data[0] & 15, data[1], data[2]);
+		}
+	} else {
+		if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
+			midi_event_note(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
+		} else if (cmd == 0x9) {
+			midi_event_note(MIDI_NOTEON, data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xA) {
+			midi_event_note(MIDI_KEYPRESS, data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xB) {
+			midi_event_controller(data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xC) {
+			midi_event_program(data[0] & 15, data[1]);
+		} else if (cmd == 0xD) {
+			midi_event_aftertouch(data[0] & 15, data[1]);
+		} else if (cmd == 0xE) {
+			midi_event_pitchbend(data[0] & 15, data[1]);
+		} else if (cmd == 0xF) {
+			switch ((*data & 15)) {
+			case 0: /* sysex */
+				if (len <= 2) return;
+				midi_event_sysex(data+1, len-2);
+				break;
+			case 6: /* tick */
+				midi_event_tick();
+				break;
+			default:
+				/* something else */
+				midi_event_system((*data & 15), (data[1])
+						| (data[2] << 8)
+						| (data[3] << 16));
+				break;
+			}
 		}
 	}
 }
@@ -874,6 +886,12 @@ static void midi_push_event(Uint8 code, void *data1, size_t data1_len, int alloc
 	}
 
 	SDL_PushEvent(&e);
+}
+
+void midi_event_launchpad(enum midi_note mnstatus, int channel, int note, int velocity)
+{
+	int st[4] = { mnstatus, channel, note, velocity };
+	midi_push_event(SCHISM_EVENT_MIDI_LP, st, sizeof(st), 1);
 }
 
 void midi_event_note(enum midi_note mnstatus, int channel, int note, int velocity)

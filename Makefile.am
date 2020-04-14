@@ -97,13 +97,14 @@ noinst_HEADERS = \
 	include/dmoz.h			\
 	include/draw-char.h		\
 	include/event.h			\
-	include/fmopl2.h			\
-	include/fmopl3.h			\
+	include/fmopl2.h		\
+	include/fmopl3.h		\
 	include/fmt.h			\
 	include/fmt-types.h		\
 	include/headers.h		\
 	include/it_defs.h		\
 	include/it.h			\
+	include/launchpad.h		\
 	include/log.h			\
 	include/midi.h			\
 	include/osdefs.h		\
@@ -335,6 +336,7 @@ schismtracker_SOURCES = \
 	schism/draw-misc.c		\
 	schism/fakemem.c		\
 	schism/version.c		\
+	schism/launchpad.c		\
 	player/csndfile.c		\
 	player/mixutil.c		\
 	player/equalizer.c		\

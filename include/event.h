@@ -39,6 +39,7 @@
 #define SCHISM_EVENT_MIDI_TICK          6
 #define SCHISM_EVENT_MIDI_SYSEX         7
 #define SCHISM_EVENT_MIDI_SYSTEM        8
+#define SCHISM_EVENT_MIDI_LP			9
 
 #define SCHISM_EVENT_NATIVE_OPEN        1
 #define SCHISM_EVENT_NATIVE_SCRIPT      16
