@@ -89,6 +89,7 @@ void midi_engine_poll_ports(void);
 
 /* some parts of schism call this; it means "immediately" */
 void midi_send_now(const unsigned char *seq, unsigned int len);
+void midi_send_now_launchpad(const unsigned char *seq, unsigned int len);
 
 /* ... but the player calls this */
 void midi_send_buffer(const unsigned char *data, unsigned int len, unsigned int pos);

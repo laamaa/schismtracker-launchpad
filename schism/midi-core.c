@@ -169,6 +169,7 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 		if (strstr(q->name,"Launchpad") != NULL && q->io == MIDI_INPUT|MIDI_OUTPUT){
 			lp_port = q->num;
 			log_appendf(3,"LP found in port %d",lp_port);
+			lp_initialize();
 		}
 	}
 
@@ -573,7 +574,7 @@ fflush(stdout);
 					ptr->send_now(ptr, data, len, 0);
 			}
 		}
-	} else {
+	} else if (from == 2) {
 		/* from == 2 means from buffer-write; only "later" plays */
 		while (midi_port_foreach(NULL, &ptr)) {
 			if ((ptr->io & MIDI_OUTPUT)) {
@@ -581,6 +582,20 @@ fflush(stdout);
 					ptr->send_later(ptr, data, len, delay);
 				else if (ptr->send_now)
 					need_timer = 1;
+			}
+		}
+	} else {
+		/* from == 3 means send only to launchpad */
+		if (lp_port > -1){
+			while (midi_port_foreach(NULL, &ptr)) {
+				if ((ptr->io & MIDI_OUTPUT) && ptr->num == lp_port) {
+					if (ptr->send_now){
+						ptr->send_now(ptr, data, len, 0);
+					}
+					else if (ptr->send_later){
+						ptr->send_later(ptr, data, len, 0);
+					}
+				}
 			}
 		}
 	}
@@ -593,6 +608,15 @@ void midi_send_now(const unsigned char *seq, unsigned int len)
 
 	SDL_mutexP(midi_record_mutex);
 	_midi_send_unlocked(seq, len, 0, 0);
+	SDL_mutexV(midi_record_mutex);
+}
+
+void midi_send_now_launchpad(const unsigned char *seq, unsigned int len)
+{
+	if (!midi_record_mutex) return;
+	
+	SDL_mutexP(midi_record_mutex);
+	_midi_send_unlocked(seq, len, 0, 3);
 	SDL_mutexV(midi_record_mutex);
 }
 
@@ -984,10 +1008,10 @@ int midi_engine_handle_event(void *ev)
 	switch (e->user.code) {
 	case SCHISM_EVENT_MIDI_LP:
 		if (st[0] == MIDI_NOTEON) {
-			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])+1] = 1;
+			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 1;
 			log_appendf(3,"LP button down %d", lp_grid_button_hex_to_int(st[2]));
 			if (lp_is_hex_code_grid_button(st[2]) == 1){
-				song_start_at_order(st[2], 0);
+				song_set_next_order(st[2]);
 			} else {
 				if (st[2] == LP_BTN_SCENE_H){
 					if (song_get_mode() == MODE_PLAYING){
@@ -998,7 +1022,7 @@ int midi_engine_handle_event(void *ev)
 				}
 			}
 		} else {
-			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])+1] = 0;
+			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
 			log_appendf(3,"LP button up %d", lp_grid_button_hex_to_int(st[2]));
 		}
 		break;

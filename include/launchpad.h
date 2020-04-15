@@ -31,9 +31,14 @@ enum lp_view {
 };
 
 int lp_port;
-int lp_grid_buttons_down[65];
+int lp_grid_buttons_down[64];
 int lp_grid_buttoncode(int val);
 int lp_grid_button_hex_to_int(int val);
-int lp_is_hex_code_grid_button(int val);
+int lp_is_hex_code_grid_button(int val); // Is the parameter code a LP grid button? 0 = false, 1 = true
+
+void lp_draw_order_grid(int num_orders);
+void lp_initialize();
+void lp_resetall();
+void lp_set_grid_led(int num, int color);
 
 #endif

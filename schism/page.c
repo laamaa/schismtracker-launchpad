@@ -29,6 +29,7 @@
 #include "page.h"
 #include "util.h"
 #include "midi.h"
+#include "launchpad.h"
 #include "version.h"
 
 #include "sdlmain.h"
@@ -1692,6 +1693,8 @@ void main_song_changed_cb(void)
 
 	status.flags |= NEED_UPDATE;
 	memused_songchanged();
+	
+	lp_draw_order_grid(csf_get_num_orders(current_song));
 }
 
 /* --------------------------------------------------------------------- */
@@ -1708,6 +1711,7 @@ static void savecheck(void (*ok)(void *data), void (*cancel)(void *data), void *
 
 static void exit_ok_confirm(UNUSED void *data)
 {
+	lp_resetall();
 	exit(0);
 }
 
