@@ -368,6 +368,7 @@ static void file_list_reposition(void)
 	else if (current_file > top_file + 30)
 		top_file = current_file - 30;
 	status.flags |= NEED_UPDATE;
+	status.lp_flags |= LP_UPDATE_GRID;
 }
 
 static void dir_list_reposition(void)
@@ -403,6 +404,7 @@ static void read_directory(void)
 	dmoz_filter_filelist(&flist, dmoz_fill_ext_data, &current_file, file_list_reposition);
 	file_list_reposition();
 	dir_list_reposition();
+	
 }
 
 /* --------------------------------------------------------------------- */
@@ -959,6 +961,22 @@ static int update_directory(void)
 	status.flags &= ~DIR_MODULES_CHANGED;
 
 	return 1;
+}
+
+/* --------------------------------------------------------------------- */
+
+/* For setting current file with Launchpad */
+void set_current_file(int num){
+	if (num > -1 && num < flist.num_files)
+	{
+		current_file = num;
+		status.flags |= NEED_UPDATE;
+		status.lp_flags |= LP_UPDATE_GRID;
+	}
+}
+
+int get_flist_num_files(){
+	return flist.num_files;
 }
 
 /* --------------------------------------------------------------------- */

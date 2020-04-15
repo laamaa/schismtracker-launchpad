@@ -1692,9 +1692,9 @@ void main_song_changed_cb(void)
 	 * TODO | very first time this is called) */
 
 	status.flags |= NEED_UPDATE;
+	status.lp_flags |= LP_UPDATE_GRID;
 	memused_songchanged();
 	
-	lp_draw_order_grid(csf_get_num_orders(current_song));
 }
 
 /* --------------------------------------------------------------------- */
@@ -1711,7 +1711,6 @@ static void savecheck(void (*ok)(void *data), void (*cancel)(void *data), void *
 
 static void exit_ok_confirm(UNUSED void *data)
 {
-	lp_resetall();
 	exit(0);
 }
 

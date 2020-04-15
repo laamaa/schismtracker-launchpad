@@ -500,6 +500,10 @@ void pattern_editor_display_options(void);
 void pattern_editor_length_edit(void);
 int pattern_max_channels(int patno, int opt_bits[64]);
 
+/* page_loadmodule.c */
+void set_current_file(int num);
+int get_flist_num_files();
+
 /* page_orderpan.c */
 void update_current_order(void);
 

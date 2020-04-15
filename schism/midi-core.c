@@ -1009,9 +1009,13 @@ int midi_engine_handle_event(void *ev)
 	case SCHISM_EVENT_MIDI_LP:
 		if (st[0] == MIDI_NOTEON) {
 			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 1;
-			log_appendf(3,"LP button down %d", lp_grid_button_hex_to_int(st[2]));
 			if (lp_is_hex_code_grid_button(st[2]) == 1){
-				song_set_next_order(st[2]);
+				if (status.current_page == PAGE_LOAD_MODULE)
+				{
+					set_current_file(lp_grid_button_hex_to_int(st[2]));
+				} else {
+					song_set_next_order(lp_grid_button_hex_to_int(st[2]));
+				}
 			} else {
 				if (st[2] == LP_BTN_SCENE_H){
 					if (song_get_mode() == MODE_PLAYING){
@@ -1023,7 +1027,6 @@ int midi_engine_handle_event(void *ev)
 			}
 		} else {
 			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
-			log_appendf(3,"LP button up %d", lp_grid_button_hex_to_int(st[2]));
 		}
 		break;
 	case SCHISM_EVENT_MIDI_LP_CONTROLLER:
