@@ -3,11 +3,26 @@
 #include "midi.h"
 #include "sndfile.h"
 #include "song.h"
+#include "it.h"
+#include "page.h"
 #include <stdio.h>
 
 int loop_start;
 int loop_end;
+int active_order = 0;
+int queued_order;
 
+void lp_check_active_order()
+{
+	if (active_order != song_get_current_order()){
+		active_order = song_get_current_order();
+		if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID)
+			status.lp_flags &= ~(LP_UPDATE_GRID);
+		lp_update_grid();
+	}
+}
+
+/* Return the hex code for a LP grid button, values 1-64 */
 int lp_grid_buttoncode(int val)
 {
 	if (val >= 0 && val < 64) {
@@ -34,13 +49,30 @@ int lp_is_hex_code_grid_button(int val)
 	}
 }
 
+void lp_set_led(int num, int color)
+{
+	unsigned char buf[3];
+	buf[0] = 0x90; //Note on = LED on
+	buf[1] = num;
+	buf[2] = color;
+	midi_send_now_launchpad((unsigned char *)buf, 3);
+	midi_send_flush();
+}
+
 void lp_resetall()
 {
 	unsigned char buf[3];
+	/* This sequence resets Launchpad */
 	buf[0] = 0xB0;
 	buf[1] = 0x00;
 	buf[2] = 0x00;
 	midi_send_now_launchpad((unsigned char *)buf, 3); 
+	midi_send_flush();
+	/* This sequence sets buffer mode to enable flashing */
+	buf[0] = 0xB0;
+	buf[1] = 0x00;
+	buf[2] = 0x28;
+	midi_send_now_launchpad((unsigned char *)buf, 3);
 	midi_send_flush();
 }
 
@@ -64,6 +96,7 @@ void lp_initialize()
 		return;
 		
 	lp_resetall();
+	lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_LOW);
 }
 
 void lp_set_grid_led(int num, int color)
@@ -73,18 +106,66 @@ void lp_set_grid_led(int num, int color)
 	buf[1] = lp_grid_buttoncode(num);
 	buf[2] = color;
 	midi_send_now_launchpad((unsigned char *)buf, 3);
-	midi_send_flush();	
+	midi_send_flush();
 }
-
+/* TODO */
 void lp_set_loop_start(int order);
 void lp_set_loop_end(int order);
 
-void lp_update_grid(){
-	log_appendf(3,"LP update grid");
-	log_appendf(3,"numorders %d",csf_get_num_orders(current_song));
-	/* Light up order leds for LP */
-	lp_draw_grid(csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
-	if (current_song->process_order != song_get_current_order()){
-		lp_set_grid_led(current_song->process_order+1,LP_LED_GREEN_FLASH);
+void lp_update_grid()
+{
+	if (status.current_page == PAGE_LOAD_MODULE) {
+		/* TODO */
+		int num_files = get_flist_num_files();
+		lp_draw_grid(num_files,LP_LED_RED_LOW);
+	} else {
+		/* Light up order leds for LP */
+		lp_draw_grid(csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
+		if (queued_order > -1)
+			lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+		lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
+		if (active_order == queued_order)
+			queued_order = -1;
+	}
+}
+
+void lp_handle_midi(int *st)
+{
+	if (st[0] == MIDI_NOTEON) {
+		/* Save pressed buttons in array */
+		lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 1;
+		if (lp_is_hex_code_grid_button(st[2]) == 1) {
+			/* Grid button is pressed */
+			if (status.current_page == PAGE_LOAD_MODULE) {
+				set_current_file(lp_grid_button_hex_to_int(st[2]));
+			} else {
+				if (song_get_mode() == MODE_STOPPED) {
+					song_set_current_order(lp_grid_button_hex_to_int(st[2]));
+					queued_order = lp_grid_button_hex_to_int(st[2]);
+					lp_update_grid();
+				} else {
+					int next_order = lp_grid_button_hex_to_int(st[2]);
+					song_set_next_order(next_order);
+					queued_order = next_order;
+				}
+			}
+		} else {
+			if (st[2] == LP_BTN_SCENE_H){
+				if (song_get_mode() == MODE_PLAYING) {
+					song_stop();
+					lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_LOW);
+				} else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP) {
+					if (queued_order > -1) {
+						song_start_at_order(queued_order,0);
+					} else {
+						song_start_at_order(song_get_current_order(),0);
+					}
+					lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
+				}
+			}
+		}
+	} else {
+		/* Note off message */
+		lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
 	}
 }

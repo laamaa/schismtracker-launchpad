@@ -613,10 +613,11 @@ void midi_send_now(const unsigned char *seq, unsigned int len)
 
 void midi_send_now_launchpad(const unsigned char *seq, unsigned int len)
 {
-	if (!midi_record_mutex) return;
+	if (!midi_record_mutex)
+		return;
 	
 	SDL_mutexP(midi_record_mutex);
-	_midi_send_unlocked(seq, len, 0, 3);
+	_midi_send_unlocked(seq, len, 0, 0);
 	SDL_mutexV(midi_record_mutex);
 }
 
@@ -1007,27 +1008,7 @@ int midi_engine_handle_event(void *ev)
 
 	switch (e->user.code) {
 	case SCHISM_EVENT_MIDI_LP:
-		if (st[0] == MIDI_NOTEON) {
-			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 1;
-			if (lp_is_hex_code_grid_button(st[2]) == 1){
-				if (status.current_page == PAGE_LOAD_MODULE)
-				{
-					set_current_file(lp_grid_button_hex_to_int(st[2]));
-				} else {
-					song_set_next_order(lp_grid_button_hex_to_int(st[2]));
-				}
-			} else {
-				if (st[2] == LP_BTN_SCENE_H){
-					if (song_get_mode() == MODE_PLAYING){
-						song_stop();
-					} else if (song_get_mode() == MODE_STOPPED){
-						song_start_at_order(song_get_current_order(),0);
-					}
-				}
-			}
-		} else {
-			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
-		}
+		lp_handle_midi(st);
 		break;
 	case SCHISM_EVENT_MIDI_LP_CONTROLLER:
 		/* Launchpad top row buttons */

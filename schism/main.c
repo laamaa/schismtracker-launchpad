@@ -484,6 +484,7 @@ static void check_update(void)
 				return;
 			next = SDL_GetTicks() + 100;
 		}
+		lp_check_active_order();
 		redraw_screen();
 		video_refresh();
 		video_blit();

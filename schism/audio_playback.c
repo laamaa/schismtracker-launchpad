@@ -898,6 +898,7 @@ void song_set_current_order(int order)
 {
 	song_lock_audio();
 	csf_set_current_order(current_song, order);
+	status.lp_flags |= LP_UPDATE_GRID;
 	song_unlock_audio();
 }
 
