@@ -502,6 +502,7 @@ int pattern_max_channels(int patno, int opt_bits[64]);
 
 /* page_loadmodule.c */
 void set_current_file(int num);
+int get_current_file();
 int get_flist_num_files();
 
 /* page_orderpan.c */

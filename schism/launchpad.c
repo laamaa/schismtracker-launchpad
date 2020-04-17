@@ -1,3 +1,4 @@
+#include "headers.h"
 #include "launchpad.h"
 #include "log.h"
 #include "midi.h"
@@ -10,7 +11,18 @@
 int loop_start;
 int loop_end;
 int active_order = 0;
-int queued_order;
+int queued_order = -1;
+
+void push_keyboard_enter_event()
+{
+	SDL_Event sdlevent = {};
+	sdlevent.type = SDL_KEYDOWN;
+	sdlevent.key.keysym.sym = SDLK_RETURN;
+	SDL_PushEvent(&sdlevent);
+	sdlevent.type = SDL_KEYUP;
+	sdlevent.key.keysym.sym = SDLK_RETURN;
+	SDL_PushEvent(&sdlevent);
+}
 
 void lp_check_active_order()
 {
@@ -118,6 +130,7 @@ void lp_update_grid()
 		/* TODO */
 		int num_files = get_flist_num_files();
 		lp_draw_grid(num_files,LP_LED_RED_LOW);
+		lp_set_grid_led(get_current_file(),LP_LED_GREEN_FULL);
 	} else {
 		/* Light up order leds for LP */
 		lp_draw_grid(csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
@@ -138,6 +151,7 @@ void lp_handle_midi(int *st)
 			/* Grid button is pressed */
 			if (status.current_page == PAGE_LOAD_MODULE) {
 				set_current_file(lp_grid_button_hex_to_int(st[2]));
+				lp_set_led(st[2],LP_LED_GREEN_LOW);
 			} else {
 				if (song_get_mode() == MODE_STOPPED) {
 					song_set_current_order(lp_grid_button_hex_to_int(st[2]));
@@ -151,16 +165,21 @@ void lp_handle_midi(int *st)
 			}
 		} else {
 			if (st[2] == LP_BTN_SCENE_H){
-				if (song_get_mode() == MODE_PLAYING) {
-					song_stop();
-					lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_LOW);
-				} else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP) {
-					if (queued_order > -1) {
-						song_start_at_order(queued_order,0);
-					} else {
-						song_start_at_order(song_get_current_order(),0);
+				if (status.current_page == PAGE_ABOUT || status.current_page == PAGE_LOAD_MODULE) {
+					push_keyboard_enter_event();
+				} else {
+					/* Playback & Looping control */
+					if (song_get_mode() == MODE_PLAYING) {
+						song_stop();
+						lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_LOW);
+					} else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP) {
+						if (queued_order > -1) {
+							song_start_at_order(queued_order,0);
+						} else {
+							song_start_at_order(song_get_current_order(),0);
+						}
+						lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
 					}
-					lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
 				}
 			}
 		}

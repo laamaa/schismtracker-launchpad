@@ -650,6 +650,7 @@ void song_start_at_order(int order, int row)
 	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
+	status.lp_flags |= LP_UPDATE_GRID;
 }
 
 void song_start_at_pattern(int pattern, int row)
@@ -665,6 +666,7 @@ void song_start_at_pattern(int pattern, int row)
 	}
 
 	song_loop_pattern(pattern, row);
+	status.lp_flags |= LP_UPDATE_GRID;
 }
 
 // ------------------------------------------------------------------------

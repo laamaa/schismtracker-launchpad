@@ -569,14 +569,14 @@ fflush(stdout);
 	} else if (from == 1) {
 		/* from == 1 means from buffer-flush; only "now" plays */
 		while (midi_port_foreach(NULL, &ptr)) {
-			if ((ptr->io & MIDI_OUTPUT)) {
+			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_port) {
 				if (ptr->send_now)
 					ptr->send_now(ptr, data, len, 0);
 			}
 		}
 	} else if (from == 2) {
 		/* from == 2 means from buffer-write; only "later" plays */
-		while (midi_port_foreach(NULL, &ptr)) {
+		while (midi_port_foreach(NULL, &ptr) && ptr->num != lp_port) {
 			if ((ptr->io & MIDI_OUTPUT)) {
 				if (ptr->send_later)
 					ptr->send_later(ptr, data, len, delay);

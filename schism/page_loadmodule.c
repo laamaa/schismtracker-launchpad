@@ -966,7 +966,8 @@ static int update_directory(void)
 /* --------------------------------------------------------------------- */
 
 /* For setting current file with Launchpad */
-void set_current_file(int num){
+void set_current_file(int num)
+{
 	if (num > -1 && num < flist.num_files)
 	{
 		current_file = num;
@@ -975,7 +976,13 @@ void set_current_file(int num){
 	}
 }
 
-int get_flist_num_files(){
+int get_current_file()
+{
+	return current_file;
+}
+
+int get_flist_num_files()
+{
 	return flist.num_files;
 }
 
