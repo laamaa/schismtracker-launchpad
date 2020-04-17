@@ -167,8 +167,8 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 		}
 		if (q->io && q->enable) q->enable(q);
 		if (strstr(q->name,"Launchpad") != NULL && q->io == MIDI_INPUT|MIDI_OUTPUT){
-			lp_port = q->num;
-			log_appendf(3,"LP found in port %d",lp_port);
+			lp_set_port(q->num);
+			log_appendf(3,"LP found in port %d",lp_get_port());
 			lp_initialize();
 		}
 	}
@@ -559,7 +559,7 @@ fflush(stdout);
 	if (from == 0) {
 		/* from == 0 means from immediate; everyone plays */
 		while (midi_port_foreach(NULL, &ptr)) {
-			if ((ptr->io & MIDI_OUTPUT)) {
+			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_get_port()) {
 				if (ptr->send_now)
 					ptr->send_now(ptr, data, len, 0);
 				else if (ptr->send_later)
@@ -569,15 +569,15 @@ fflush(stdout);
 	} else if (from == 1) {
 		/* from == 1 means from buffer-flush; only "now" plays */
 		while (midi_port_foreach(NULL, &ptr)) {
-			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_port) {
+			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_get_port()) {
 				if (ptr->send_now)
 					ptr->send_now(ptr, data, len, 0);
 			}
 		}
 	} else if (from == 2) {
 		/* from == 2 means from buffer-write; only "later" plays */
-		while (midi_port_foreach(NULL, &ptr) && ptr->num != lp_port) {
-			if ((ptr->io & MIDI_OUTPUT)) {
+		while (midi_port_foreach(NULL, &ptr)) {
+			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_get_port()) {
 				if (ptr->send_later)
 					ptr->send_later(ptr, data, len, delay);
 				else if (ptr->send_now)
@@ -586,9 +586,8 @@ fflush(stdout);
 		}
 	} else {
 		/* from == 3 means send only to launchpad */
-		if (lp_port > -1){
 			while (midi_port_foreach(NULL, &ptr)) {
-				if ((ptr->io & MIDI_OUTPUT) && ptr->num == lp_port) {
+				if ((ptr->io & MIDI_OUTPUT) && ptr->num == lp_get_port()) {
 					if (ptr->send_now){
 						ptr->send_now(ptr, data, len, 0);
 					}
@@ -597,7 +596,6 @@ fflush(stdout);
 					}
 				}
 			}
-		}
 	}
 	return need_timer;
 }
@@ -617,7 +615,7 @@ void midi_send_now_launchpad(const unsigned char *seq, unsigned int len)
 		return;
 	
 	SDL_mutexP(midi_record_mutex);
-	_midi_send_unlocked(seq, len, 0, 0);
+	_midi_send_unlocked(seq, len, 0, 3);
 	SDL_mutexV(midi_record_mutex);
 }
 

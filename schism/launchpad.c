@@ -12,6 +12,17 @@ int loop_start;
 int loop_end;
 int active_order = 0;
 int queued_order = -1;
+int lp_port;
+
+int lp_get_port()
+{
+	return lp_port;
+}
+
+void lp_set_port(int num)
+{
+	if (num > -1) lp_port = num;
+}
 
 void push_keyboard_enter_event()
 {

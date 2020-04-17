@@ -25,7 +25,7 @@
 #define LP_LED_YELLOW_FLASH 0x3A
 #define LP_LED_GREEN_FLASH 0x38
 
-int lp_port;
+int lp_get_port();
 int lp_grid_buttons_down[64];
 int lp_grid_buttoncode(int val);
 int lp_grid_button_hex_to_int(int val);
@@ -38,6 +38,7 @@ void lp_resetall();
 void lp_set_grid_led(int num, int color);
 void lp_set_loop_start(int order);
 void lp_set_loop_end(int order);
+void lp_set_port(int port);
 void lp_handle_midi(int *st);
 void lp_update_grid();
 
