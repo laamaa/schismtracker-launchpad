@@ -1,5 +1,18 @@
 # Schism Tracker
 
+This is laamaa's fork of Schism Tracker. It adds support for controlling the application/playback with a Novation Launchpad controller. The aim is to make playing modules without a display possible. Development done with a Launchpad Mini MK2 in Linux, no idea if this works under any other platforms.
+
+How to set up Launchpad & Schism:
+* Connect the Launchpad via USB
+* Open Schism Tracker and select the LP as a Duplex mode device in MIDI config (Shift+F1)
+* Quit Schism and reopen, after the restart you should see some lights come up on the controller
+
+* *Scene F* button brings up "Load module" page, select the desired file with grid buttons and load with *Scene H*. Pressing *Scene F* again returns to the previous page.
+* *Scene H* starts/stops playback
+* The next order can be queued by pressing the corresponding button on the order grid.
+
+-----
+
 Schism Tracker is a free and open-source reimplementation of [Impulse
 Tracker](https://github.com/schismtracker/schismtracker/wiki/Impulse-Tracker),
 a program used to create high quality music without the requirements of
