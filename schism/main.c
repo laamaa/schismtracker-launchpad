@@ -493,6 +493,11 @@ static void check_update(void)
 		status.flags &= ~(SOFTWARE_MOUSE_MOVED);
 	}
 	
+	if (status.lp_flags & LP_NEED_RESET == LP_NEED_RESET) {
+		status.lp_flags &= ~(LP_NEED_RESET);
+		lp_resetall();
+	}
+	
 	if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID) {
 		status.lp_flags &= ~(LP_UPDATE_GRID);
 		lp_update_grid();

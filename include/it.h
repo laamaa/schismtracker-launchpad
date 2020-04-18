@@ -149,6 +149,7 @@ enum {
 enum {
 	LP_UPDATE_GRID = (1 << 0),
 	LP_UPDATE_TOPROW = (1 << 1),
+	LP_NEED_RESET = (1 << 2),
 };
 
 /* note! TIME_PLAYBACK is only for internal calculations -- don't use it directly */

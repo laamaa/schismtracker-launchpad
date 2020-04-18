@@ -167,6 +167,7 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 		}
 		if (q->io && q->enable) q->enable(q);
 		if (strstr(q->name,"Launchpad") != NULL && q->io == MIDI_INPUT|MIDI_OUTPUT){
+			q->io |= MIDI_LAUNCHPAD;
 			lp_set_port(q->num);
 			log_appendf(3,"LP found in port %d",lp_get_port());
 			lp_initialize();
@@ -862,7 +863,7 @@ void midi_received_cb(struct midi_port *src, unsigned char *data, unsigned int l
 	cmd = ((*data) & 0xF0) >> 4;
 
 	/* Redirect LP controller events to own handler */
-	if (strstr(src->name,"Launchpad") != NULL) {
+	if (src->io & MIDI_LAUNCHPAD == MIDI_LAUNCHPAD) {
 		if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
 			midi_event_launchpad(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
 		} else if (cmd == 0x9) {

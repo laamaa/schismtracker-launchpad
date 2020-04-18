@@ -37,7 +37,7 @@ void push_keyboard_enter_event()
 
 void lp_check_active_order()
 {
-	if (active_order != song_get_current_order()){
+	if (active_order != song_get_current_order()) {
 		active_order = song_get_current_order();
 		if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID)
 			status.lp_flags &= ~(LP_UPDATE_GRID);
@@ -137,19 +137,33 @@ void lp_set_loop_end(int order);
 
 void lp_update_grid()
 {
-	if (status.current_page == PAGE_LOAD_MODULE) {
-		/* TODO */
-		int num_files = get_flist_num_files();
-		lp_draw_grid(num_files,LP_LED_RED_LOW);
-		lp_set_grid_led(get_current_file(),LP_LED_GREEN_FULL);
-	} else {
-		/* Light up order leds for LP */
-		lp_draw_grid(csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
-		if (queued_order > -1)
-			lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
-		lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
-		if (active_order == queued_order)
-			queued_order = -1;
+	int num_files;
+	switch (status.current_page)
+	{
+		case PAGE_ABOUT:
+			break;
+		case PAGE_LOAD_MODULE:
+			num_files = get_flist_num_files();
+			lp_draw_grid(num_files,LP_LED_RED_LOW);
+			lp_set_grid_led(get_current_file(),LP_LED_GREEN_FULL);
+			lp_set_led(LP_BTN_SCENE_F,LP_LED_RED_FULL);
+			break;
+		default:
+			/* Light up order leds for LP */
+			lp_draw_grid(csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
+			lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
+			if (queued_order > -1)
+				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+			if (active_order == queued_order)
+				queued_order = -1;
+			if (song_get_mode() == MODE_STOPPED) {
+				/* Because we reset the controller when switching pages, we need to check this as well... */
+				lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_FULL);
+			} else {
+				lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
+			}
+			
+			break;
 	}
 }
 
@@ -175,23 +189,39 @@ void lp_handle_midi(int *st)
 				}
 			}
 		} else {
-			if (st[2] == LP_BTN_SCENE_H){
-				if (status.current_page == PAGE_ABOUT || status.current_page == PAGE_LOAD_MODULE) {
-					push_keyboard_enter_event();
-				} else {
-					/* Playback & Looping control */
-					if (song_get_mode() == MODE_PLAYING) {
-						song_stop();
-						lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_LOW);
-					} else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP) {
-						if (queued_order > -1) {
-							song_start_at_order(queued_order,0);
-						} else {
-							song_start_at_order(song_get_current_order(),0);
+			/* A scene button is pressed */
+			switch (st[2]) {
+				case LP_BTN_SCENE_H:
+					if (status.current_page == PAGE_ABOUT || status.current_page == PAGE_LOAD_MODULE) {
+						push_keyboard_enter_event();
+					} else {
+						/* Playback & Looping control */
+						if (song_get_mode() == MODE_PLAYING) {
+							song_stop();
+							lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_FULL);
+						} else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP) {
+							if (queued_order > -1) {
+								song_start_at_order(queued_order,0);
+							} else {
+								song_start_at_order(song_get_current_order(),0);
+							}
+							lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
 						}
-						lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
 					}
-				}
+					break;
+				case LP_BTN_SCENE_G:
+					/* TODO Song repeat mode: infinite / repeat pattern */
+					break;
+				case LP_BTN_SCENE_F:
+					if (status.current_page == PAGE_LOAD_MODULE)
+						set_page(status.previous_page);
+					else
+						set_page(PAGE_LOAD_MODULE);
+					lp_update_grid();
+					break;
+				case LP_BTN_SCENE_A:
+					/* TODO Shift button: solo channels instead of muting */
+					break;
 			}
 		}
 	} else {

@@ -1625,8 +1625,7 @@ void set_page(int new_page)
 
 	if (ACTIVE_PAGE.set_page) ACTIVE_PAGE.set_page();
 	status.flags |= NEED_UPDATE;
-	
-	status.lp_flags |= LP_UPDATE_GRID;
+	status.lp_flags |= (LP_UPDATE_GRID | LP_NEED_RESET);
 
 }
 
