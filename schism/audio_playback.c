@@ -650,6 +650,7 @@ void song_start_at_order(int order, int row)
 	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
+	status.lp_flags |= LP_UPDATE_GRID;
 }
 
 void song_start_at_pattern(int pattern, int row)
@@ -665,6 +666,7 @@ void song_start_at_pattern(int pattern, int row)
 	}
 
 	song_loop_pattern(pattern, row);
+	status.lp_flags |= LP_UPDATE_GRID;
 }
 
 // ------------------------------------------------------------------------
@@ -898,6 +900,7 @@ void song_set_current_order(int order)
 {
 	song_lock_audio();
 	csf_set_current_order(current_song, order);
+	status.lp_flags |= LP_UPDATE_GRID;
 	song_unlock_audio();
 }
 
@@ -906,6 +909,7 @@ void song_set_next_order(int order)
 {
 	song_lock_audio();
 	current_song->process_order = order - 1;
+	status.lp_flags |= LP_UPDATE_GRID;
 	song_unlock_audio();
 }
 

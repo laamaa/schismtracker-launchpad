@@ -39,6 +39,8 @@
 
 #include "dmoz.h"
 
+#include "launchpad.h"
+
 #include <ctype.h>
 #include <assert.h>
 
@@ -164,6 +166,12 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 			q->io |= MIDI_OUTPUT;
 		}
 		if (q->io && q->enable) q->enable(q);
+		if (strstr(q->name,"Launchpad") != NULL && q->io == MIDI_INPUT|MIDI_OUTPUT){
+			q->io |= MIDI_LAUNCHPAD;
+			lp_set_port(q->num);
+			log_appendf(3,"LP found in port %d",lp_get_port());
+			lp_initialize();
+		}
 	}
 
 	cfg_free(&cfg);
@@ -552,7 +560,7 @@ fflush(stdout);
 	if (from == 0) {
 		/* from == 0 means from immediate; everyone plays */
 		while (midi_port_foreach(NULL, &ptr)) {
-			if ((ptr->io & MIDI_OUTPUT)) {
+			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_get_port()) {
 				if (ptr->send_now)
 					ptr->send_now(ptr, data, len, 0);
 				else if (ptr->send_later)
@@ -562,21 +570,33 @@ fflush(stdout);
 	} else if (from == 1) {
 		/* from == 1 means from buffer-flush; only "now" plays */
 		while (midi_port_foreach(NULL, &ptr)) {
-			if ((ptr->io & MIDI_OUTPUT)) {
+			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_get_port()) {
 				if (ptr->send_now)
 					ptr->send_now(ptr, data, len, 0);
 			}
 		}
-	} else {
+	} else if (from == 2) {
 		/* from == 2 means from buffer-write; only "later" plays */
 		while (midi_port_foreach(NULL, &ptr)) {
-			if ((ptr->io & MIDI_OUTPUT)) {
+			if ((ptr->io & MIDI_OUTPUT) && ptr->num != lp_get_port()) {
 				if (ptr->send_later)
 					ptr->send_later(ptr, data, len, delay);
 				else if (ptr->send_now)
 					need_timer = 1;
 			}
 		}
+	} else {
+		/* from == 3 means send only to launchpad */
+			while (midi_port_foreach(NULL, &ptr)) {
+				if ((ptr->io & MIDI_OUTPUT) && ptr->num == lp_get_port()) {
+					if (ptr->send_now){
+						ptr->send_now(ptr, data, len, 0);
+					}
+					else if (ptr->send_later){
+						ptr->send_later(ptr, data, len, 0);
+					}
+				}
+			}
 	}
 	return need_timer;
 }
@@ -587,6 +607,16 @@ void midi_send_now(const unsigned char *seq, unsigned int len)
 
 	SDL_mutexP(midi_record_mutex);
 	_midi_send_unlocked(seq, len, 0, 0);
+	SDL_mutexV(midi_record_mutex);
+}
+
+void midi_send_now_launchpad(const unsigned char *seq, unsigned int len)
+{
+	if (!midi_record_mutex)
+		return;
+	
+	SDL_mutexP(midi_record_mutex);
+	_midi_send_unlocked(seq, len, 0, 3);
 	SDL_mutexV(midi_record_mutex);
 }
 
@@ -831,35 +861,47 @@ void midi_received_cb(struct midi_port *src, unsigned char *data, unsigned int l
 	}
 
 	cmd = ((*data) & 0xF0) >> 4;
-	if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
-		midi_event_note(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
-	} else if (cmd == 0x9) {
-		midi_event_note(MIDI_NOTEON, data[0] & 15, data[1], data[2]);
-	} else if (cmd == 0xA) {
-		midi_event_note(MIDI_KEYPRESS, data[0] & 15, data[1], data[2]);
-	} else if (cmd == 0xB) {
-		midi_event_controller(data[0] & 15, data[1], data[2]);
-	} else if (cmd == 0xC) {
-		midi_event_program(data[0] & 15, data[1]);
-	} else if (cmd == 0xD) {
-		midi_event_aftertouch(data[0] & 15, data[1]);
-	} else if (cmd == 0xE) {
-		midi_event_pitchbend(data[0] & 15, data[1]);
-	} else if (cmd == 0xF) {
-		switch ((*data & 15)) {
-		case 0: /* sysex */
-			if (len <= 2) return;
-			midi_event_sysex(data+1, len-2);
-			break;
-		case 6: /* tick */
-			midi_event_tick();
-			break;
-		default:
-			/* something else */
-			midi_event_system((*data & 15), (data[1])
-					| (data[2] << 8)
-					| (data[3] << 16));
-			break;
+
+	/* Redirect LP controller events to own handler */
+	if (src->io & MIDI_LAUNCHPAD == MIDI_LAUNCHPAD) {
+		if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
+			midi_event_launchpad(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
+		} else if (cmd == 0x9) {
+			midi_event_launchpad(MIDI_NOTEON, data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xB) {
+			midi_event_launchpad_controller(data[0] & 15, data[1], data[2]);
+		}
+	} else {
+		if (cmd == 0x8 || (cmd == 0x9 && data[2] == 0)) {
+			midi_event_note(MIDI_NOTEOFF, data[0] & 15, data[1], 0);
+		} else if (cmd == 0x9) {
+			midi_event_note(MIDI_NOTEON, data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xA) {
+			midi_event_note(MIDI_KEYPRESS, data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xB) {
+			midi_event_controller(data[0] & 15, data[1], data[2]);
+		} else if (cmd == 0xC) {
+			midi_event_program(data[0] & 15, data[1]);
+		} else if (cmd == 0xD) {
+			midi_event_aftertouch(data[0] & 15, data[1]);
+		} else if (cmd == 0xE) {
+			midi_event_pitchbend(data[0] & 15, data[1]);
+		} else if (cmd == 0xF) {
+			switch ((*data & 15)) {
+			case 0: /* sysex */
+				if (len <= 2) return;
+				midi_event_sysex(data+1, len-2);
+				break;
+			case 6: /* tick */
+				midi_event_tick();
+				break;
+			default:
+				/* something else */
+				midi_event_system((*data & 15), (data[1])
+						| (data[2] << 8)
+						| (data[3] << 16));
+				break;
+			}
 		}
 	}
 }
@@ -874,6 +916,20 @@ static void midi_push_event(Uint8 code, void *data1, size_t data1_len, int alloc
 	}
 
 	SDL_PushEvent(&e);
+}
+
+void midi_event_launchpad(enum midi_note mnstatus, int channel, int note, int velocity)
+{
+	int st[4] = { mnstatus, channel, note, velocity };
+	
+	midi_push_event(SCHISM_EVENT_MIDI_LP, st, sizeof(st), 1);
+}
+
+void midi_event_launchpad_controller(int channel, int param, int value)
+{
+	int st[4] = { value, channel, param };
+
+	midi_push_event(SCHISM_EVENT_MIDI_LP_CONTROLLER, st, sizeof(st), 1);
 }
 
 void midi_event_note(enum midi_note mnstatus, int channel, int note, int velocity)
@@ -950,6 +1006,12 @@ int midi_engine_handle_event(void *ev)
 	}
 
 	switch (e->user.code) {
+	case SCHISM_EVENT_MIDI_LP:
+		lp_handle_midi(st);
+		break;
+	case SCHISM_EVENT_MIDI_LP_CONTROLLER:
+		/* Launchpad top row buttons */
+		break;
 	case SCHISM_EVENT_MIDI_NOTE:
 		if (st[0] == MIDI_NOTEON) {
 			kk.state = KEY_PRESS;

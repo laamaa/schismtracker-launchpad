@@ -29,6 +29,7 @@
 #include "page.h"
 #include "util.h"
 #include "midi.h"
+#include "launchpad.h"
 #include "version.h"
 
 #include "sdlmain.h"
@@ -1624,6 +1625,7 @@ void set_page(int new_page)
 
 	if (ACTIVE_PAGE.set_page) ACTIVE_PAGE.set_page();
 	status.flags |= NEED_UPDATE;
+	status.lp_flags |= (LP_UPDATE_GRID | LP_NEED_RESET);
 
 }
 
@@ -1691,7 +1693,9 @@ void main_song_changed_cb(void)
 	 * TODO | very first time this is called) */
 
 	status.flags |= NEED_UPDATE;
+	status.lp_flags |= LP_UPDATE_GRID;
 	memused_songchanged();
+	
 }
 
 /* --------------------------------------------------------------------- */

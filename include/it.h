@@ -145,6 +145,13 @@ enum {
 	PLAY_AFTER_LOAD = (1 << 30),
 };
 
+/* Launchpad update flags */
+enum {
+	LP_UPDATE_GRID = (1 << 0),
+	LP_UPDATE_TOPROW = (1 << 1),
+	LP_NEED_RESET = (1 << 2),
+};
+
 /* note! TIME_PLAYBACK is only for internal calculations -- don't use it directly */
 enum tracker_time_display {
 	TIME_OFF, TIME_PLAY_ELAPSED, TIME_PLAY_CLOCK, TIME_PLAY_OFF,
@@ -162,6 +169,7 @@ struct tracker_status {
 	int current_help_index;
 	int dialog_type;        /* one of the DIALOG_* constants above */
 	int flags;
+	int lp_flags;
 	enum tracker_time_display time_display;
 	enum tracker_vis_style vis_style;
 	SDLKey last_keysym;

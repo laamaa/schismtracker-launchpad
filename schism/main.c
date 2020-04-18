@@ -40,6 +40,8 @@
 #include "midi.h"
 #include "dmoz.h"
 
+#include "launchpad.h"
+
 #include "osdefs.h"
 
 #include <errno.h>
@@ -482,6 +484,7 @@ static void check_update(void)
 				return;
 			next = SDL_GetTicks() + 100;
 		}
+		lp_check_active_order();
 		redraw_screen();
 		video_refresh();
 		video_blit();
@@ -489,6 +492,16 @@ static void check_update(void)
 		video_blit();
 		status.flags &= ~(SOFTWARE_MOUSE_MOVED);
 	}
+	
+	if (status.lp_flags & LP_NEED_RESET == LP_NEED_RESET) {
+		status.lp_flags &= ~(LP_NEED_RESET);
+		lp_resetall();
+	}
+	
+	if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID) {
+		status.lp_flags &= ~(LP_UPDATE_GRID);
+		lp_update_grid();
+	} 
 }
 
 static void _synthetic_paste(const char *cbptr)
@@ -995,6 +1008,8 @@ static void schism_shutdown(void)
 		song_lock_audio();
 		song_stop_unlocked(1);
 		song_unlock_audio();
+		
+		lp_resetall();
 
 		// Clear to black on exit (nicer on Wii; I suppose it won't hurt elsewhere)
 		video_refresh();

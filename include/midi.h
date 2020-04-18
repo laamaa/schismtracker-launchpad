@@ -62,6 +62,8 @@ struct midi_provider {
 
 #define MIDI_INPUT      1
 #define MIDI_OUTPUT     2
+#define MIDI_LAUNCHPAD	3
+
 struct midi_port {
 	int io, iocap;
 	char *name;
@@ -89,6 +91,7 @@ void midi_engine_poll_ports(void);
 
 /* some parts of schism call this; it means "immediately" */
 void midi_send_now(const unsigned char *seq, unsigned int len);
+void midi_send_now_launchpad(const unsigned char *seq, unsigned int len);
 
 /* ... but the player calls this */
 void midi_send_buffer(const unsigned char *data, unsigned int len, unsigned int pos);
@@ -124,6 +127,8 @@ enum midi_note {
 	MIDI_NOTEON,
 	MIDI_KEYPRESS,
 };
+void midi_event_launchpad(enum midi_note mnstatus, int channel, int note, int velocity);
+void midi_event_launchpad_controller(int channel, int param, int value);
 void midi_event_note(enum midi_note mnstatus, int channel, int note, int velocity);
 void midi_event_controller(int channel, int param, int value);
 void midi_event_program(int channel, int value);
