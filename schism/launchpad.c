@@ -6,13 +6,26 @@
 #include "song.h"
 #include "it.h"
 #include "page.h"
+#include "time.h"
 #include <stdio.h>
 
-int loop_start;
-int loop_end;
+typedef struct lp_loop {
+	int start;
+	int end;
+	int active;
+} lp_loop;
+
+lp_loop loop = {-1,-1,0};
 int active_order = 0;
 int queued_order = -1;
 int lp_port;
+
+double get_time_ms()
+{
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return (t.tv_sec + (t.tv_usec / 1000000.0)) * 1000.0;
+}
 
 int lp_get_port()
 {
@@ -35,8 +48,24 @@ void push_keyboard_enter_event()
 	SDL_PushEvent(&sdlevent);
 }
 
+void lp_check_loop_state()
+{
+	if (loop.start != -1 && loop.end != -1) {
+		if (song_get_current_order() == loop.start) {
+			loop.active = 1;
+		} else {
+			/* If the loop is , check if we're approaching the end */
+			if (queued_order != loop.start && song_get_current_order() == loop.end) {
+				queued_order = loop.start;
+				song_set_next_order(loop.start);
+			}
+		}
+	} 
+}
+
 void lp_check_active_order()
 {
+	lp_check_loop_state();
 	if (active_order != song_get_current_order()) {
 		active_order = song_get_current_order();
 		if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID)
@@ -99,15 +128,18 @@ void lp_resetall()
 	midi_send_flush();
 }
 
-void lp_draw_grid(int num, int color)
+void lp_draw_grid(int start, int num, int color)
 {
-	if (num < 1)
+	if (start < 0 || start > 63)
 		return;
 		
-	if (num > 64)
-		num = 64;
+	if (start+num < 1)
+		return;
+		
+	if (start+num > 64)
+		num = 64-start;
 	
-	for (int i=0; i < num; i++){	
+	for (int i=start; i < start+num; i++){	
 		lp_set_grid_led(i,color);
 	}	
 }
@@ -131,61 +163,99 @@ void lp_set_grid_led(int num, int color)
 	midi_send_now_launchpad((unsigned char *)buf, 3);
 	midi_send_flush();
 }
-/* TODO */
-void lp_set_loop_start(int order);
-void lp_set_loop_end(int order);
 
 void lp_update_grid()
 {
 	int num_files;
-	switch (status.current_page)
-	{
+	switch (status.current_page) {
 		case PAGE_ABOUT:
 			break;
 		case PAGE_LOAD_MODULE:
 			num_files = get_flist_num_files();
-			lp_draw_grid(num_files,LP_LED_RED_LOW);
+			lp_draw_grid(0,num_files,LP_LED_RED_LOW);
 			lp_set_grid_led(get_current_file(),LP_LED_GREEN_FULL);
 			lp_set_led(LP_BTN_SCENE_F,LP_LED_RED_FULL);
 			break;
 		default:
 			/* Light up order leds for LP */
-			lp_draw_grid(csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
+			lp_draw_grid(0,csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
+			if (loop.start != -1 && loop.end != -1)
+				lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_YELLOW_FLASH);
 			lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
-			if (queued_order > -1)
-				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
 			if (active_order == queued_order)
-				queued_order = -1;
-			if (song_get_mode() == MODE_STOPPED) {
-				/* Because we reset the controller when switching pages, we need to check this as well... */
-				lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_FULL);
-			} else {
+				queued_order = -1;			
+			if (queued_order > -1 && loop.start == -1)
+				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+			if (song_get_mode() == MODE_STOPPED)
+				lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_FULL); // Because we reset the controller when switching pages, we need to check this as well...
+			else
 				lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
-			}
-			
 			break;
 	}
 }
 
 void lp_handle_midi(int *st)
 {
+	static int lp_grid_buttons_down[64];
+	static int previous_message[2];
+	static double debounce_start, debounce_end = 0;
+	static int loop_created = 0;
+	
+	if (debounce_start == 0)
+		debounce_start = get_time_ms();
+		
+	if (previous_message[0] == st[0] && previous_message[1] == st[2])
+	{
+		debounce_end = get_time_ms();
+		if (debounce_end-debounce_start < 20){
+			debounce_start=0;
+			return;
+		}
+	}
+	
+	previous_message[0] = st[0];
+	previous_message[1] = st[2];
+	
 	if (st[0] == MIDI_NOTEON) {
-		/* Save pressed buttons in array */
-		lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 1;
+		loop_created = 0;
 		if (lp_is_hex_code_grid_button(st[2]) == 1) {
-			/* Grid button is pressed */
+			/* A grid button is pressed */
 			if (status.current_page == PAGE_LOAD_MODULE) {
+				/* On load module page, change the selected file according to pressed grid button */
 				set_current_file(lp_grid_button_hex_to_int(st[2]));
 				lp_set_led(st[2],LP_LED_GREEN_LOW);
 			} else {
 				if (song_get_mode() == MODE_STOPPED) {
+					/* If song is stopped, set the starting order */
 					song_set_current_order(lp_grid_button_hex_to_int(st[2]));
 					queued_order = lp_grid_button_hex_to_int(st[2]);
 					lp_update_grid();
 				} else {
-					int next_order = lp_grid_button_hex_to_int(st[2]);
-					song_set_next_order(next_order);
-					queued_order = next_order;
+					/* Check if there is more than one button pressed and enable loop if so */
+					for (int i=0;i<64;i++) {
+						if (lp_grid_buttons_down[i] == 1) {
+							if (i > lp_grid_button_hex_to_int(st[2])) {
+								loop.start = lp_grid_button_hex_to_int(st[2]);
+								loop.end = i;
+							} else {
+								loop.start = i;
+								loop.end = lp_grid_button_hex_to_int(st[2]);
+							}
+							if (song_get_current_order == loop.start) {
+								loop.active = 1;
+								log_appendf(3,"loop activated");
+							}
+							log_appendf(3,"loop start: %d",loop.start);
+							log_appendf(3,"loop end: %d",loop.end);
+							lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_YELLOW_FLASH);
+							lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
+							song_set_next_order(loop.start);
+							queued_order = loop.start;
+							loop_created = 1;
+							break;
+						}
+					}
+					lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 1; // Save pressed buttons in an array
 				}
 			}
 		} else {
@@ -225,7 +295,21 @@ void lp_handle_midi(int *st)
 			}
 		}
 	} else {
-		/* Note off message */
-		lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
+		/* Note off message, queue the order */
+		if (lp_is_hex_code_grid_button(st[2]) == 1 && status.current_page != PAGE_LOAD_MODULE) {
+			if (loop_created == 0) {
+				int next_order = lp_grid_button_hex_to_int(st[2]);
+				song_set_next_order(next_order);
+				queued_order = next_order;
+				log_appendf(3,"queued order: %d",next_order);
+				if (loop.start != -1) {						
+					loop.active = 0;
+					loop.start = -1;
+					loop.end = -1;
+					log_appendf(3,"loop deactivated");
+				}
+			}
+			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
+		}
 	}
 }
