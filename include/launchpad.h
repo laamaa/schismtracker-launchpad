@@ -38,5 +38,6 @@ void lp_set_grid_led(int num, int color);
 void lp_set_port(int port);
 void lp_handle_midi(int *st);
 void lp_update_grid();
+void lp_update_vu_meters();
 
 #endif

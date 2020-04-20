@@ -21,6 +21,7 @@ lp_loop loop = {-1,-1,0};
 int active_order = 0;
 int queued_order = -1;
 int lp_port;
+const int lp_vu_colors[8]={LP_LED_OFF,LP_LED_GREEN_LOW,LP_LED_GREEN_FULL,LP_LED_YELLOW_FULL,LP_LED_AMBER_LOW,LP_LED_AMBER_FULL,LP_LED_RED_LOW,LP_LED_RED_FULL};
 
 double get_time_ms()
 {
@@ -65,6 +66,37 @@ void lp_check_loop_state()
 	} 
 }
 
+void lp_set_automap_led(int num, int color)
+{
+	if (num < 0 || num > 7)
+		return;
+	unsigned char buf[3];
+	buf[0] = 0xB0;
+	buf[1] = 0x68+num;
+	buf[2] = color;
+	midi_send_now_launchpad((unsigned char *)buf, 3);
+	midi_send_flush();	
+}
+
+/* LP automap leds (top row 1-8 btns) act as VU meters and mute/solo buttons */
+void lp_update_vu_meters()
+{
+	static double vu_timer_start = 0;
+	if (vu_timer_start = 0)
+		vu_timer_start = get_time_ms();
+	if ((song_get_mode() == MODE_PLAYING || song_get_mode() == MODE_SINGLE_STEP) && get_time_ms() - vu_timer_start > 100) {
+		vu_timer_start = 0;
+		for (int i=0; i<8; i++){
+			song_voice_t *voice = current_song->voices + i;
+			if (!(voice->current_sample_data && voice->length))
+				continue;
+			int vu = voice->vu_meter >> 2;
+			lp_set_automap_led(i,lp_vu_colors[(int)round((vu+1)/8)]);
+		}
+	}
+}
+
+/* Checks if the song has advanced to the next order and the grid should be updated */
 void lp_check_active_order()
 {
 	if (active_order != song_get_current_order()) {
@@ -178,7 +210,7 @@ void lp_turn_on_all_leds()
 	buf[1] = 0x00;
 	buf[2] = 0x7D;
 	midi_send_now_launchpad((unsigned char *)buf, 3);
-	midi_send_flush;
+	midi_send_flush();
 }
 
 void lp_update_grid()
@@ -266,7 +298,7 @@ void lp_handle_midi(int *st)
 								loop.end = lp_grid_button_hex_to_int(st[2]);
 							}
 							/* If we're already in the loop start pattern, mark it active */
-							if (song_get_current_order == loop.start)
+							if (song_get_current_order() == loop.start)
 								loop.active = 1;
 							lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_YELLOW_FLASH);
 							lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
