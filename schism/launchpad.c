@@ -57,9 +57,7 @@ void lp_check_loop_state()
 			loop.active = 1;
 		} else {
 			/* If the loop is , check if we're approaching the end */
-			log_appendf(3,"queued_order %d",queued_order);
 			if (queued_order != loop.start && song_get_current_order() == loop.end) {
-				log_appendf(3,"Setting next order loop start %d",loop.start);
 				queued_order = loop.start;
 				song_set_next_order(loop.start);
 			}
@@ -268,12 +266,8 @@ void lp_handle_midi(int *st)
 								loop.end = lp_grid_button_hex_to_int(st[2]);
 							}
 							/* If we're already in the loop start pattern, mark it active */
-							if (song_get_current_order == loop.start) {
+							if (song_get_current_order == loop.start)
 								loop.active = 1;
-								log_appendf(3,"loop activated");
-							}
-							log_appendf(3,"loop start: %d",loop.start);
-							log_appendf(3,"loop end: %d",loop.end);
 							lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_YELLOW_FLASH);
 							lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
 							song_set_next_order(loop.start);
@@ -330,14 +324,12 @@ void lp_handle_midi(int *st)
 				if (queued_order != -1)
 					lp_set_grid_led(queued_order,LP_LED_AMBER_LOW);
 				queued_order = next_order;
-				log_appendf(3,"queued order: %d",next_order);
 				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
 				if (loop.start != -1) {			
 					lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_AMBER_LOW);
 					loop.active = 0;
 					loop.start = -1;
 					loop.end = -1;
-					log_appendf(3,"loop deactivated");	
 				}
 			}
 			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
