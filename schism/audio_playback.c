@@ -909,7 +909,6 @@ void song_set_next_order(int order)
 {
 	song_lock_audio();
 	current_song->process_order = order - 1;
-	status.lp_flags |= LP_UPDATE_GRID;
 	song_unlock_audio();
 }
 

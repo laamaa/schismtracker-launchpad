@@ -9,6 +9,8 @@
 #include "time.h"
 #include <stdio.h>
 
+
+
 typedef struct lp_loop {
 	int start;
 	int end;
@@ -55,7 +57,9 @@ void lp_check_loop_state()
 			loop.active = 1;
 		} else {
 			/* If the loop is , check if we're approaching the end */
+			log_appendf(3,"queued_order %d",queued_order);
 			if (queued_order != loop.start && song_get_current_order() == loop.end) {
+				log_appendf(3,"Setting next order loop start %d",loop.start);
 				queued_order = loop.start;
 				song_set_next_order(loop.start);
 			}
@@ -65,12 +69,17 @@ void lp_check_loop_state()
 
 void lp_check_active_order()
 {
-	lp_check_loop_state();
 	if (active_order != song_get_current_order()) {
+		if (song_get_current_order() == queued_order) queued_order = -1;
+		if (status.current_page != PAGE_LOAD_MODULE)
+			lp_set_grid_led(active_order,(loop.active == 1 && active_order >= loop.start && active_order <= loop.end) ? LP_LED_YELLOW_FLASH : LP_LED_AMBER_LOW);
 		active_order = song_get_current_order();
+		lp_check_loop_state();
+		if (status.current_page != PAGE_LOAD_MODULE)
+			lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
 		if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID)
 			status.lp_flags &= ~(LP_UPDATE_GRID);
-		lp_update_grid();
+		//lp_update_grid();
 	}
 }
 
@@ -164,11 +173,22 @@ void lp_set_grid_led(int num, int color)
 	midi_send_flush();
 }
 
+void lp_turn_on_all_leds()
+{
+	unsigned char buf[3];
+	buf[0] = 0xB0;
+	buf[1] = 0x00;
+	buf[2] = 0x7D;
+	midi_send_now_launchpad((unsigned char *)buf, 3);
+	midi_send_flush;
+}
+
 void lp_update_grid()
 {
 	int num_files;
 	switch (status.current_page) {
 		case PAGE_ABOUT:
+			lp_turn_on_all_leds();
 			break;
 		case PAGE_LOAD_MODULE:
 			num_files = get_flist_num_files();
@@ -197,10 +217,11 @@ void lp_update_grid()
 void lp_handle_midi(int *st)
 {
 	static int lp_grid_buttons_down[64];
-	static int previous_message[2];
-	static double debounce_start, debounce_end = 0;
+	/* static int previous_message[2];
+	static double debounce_start, debounce_end = 0; */
 	static int loop_created = 0;
 	
+	/*
 	if (debounce_start == 0)
 		debounce_start = get_time_ms();
 		
@@ -215,6 +236,7 @@ void lp_handle_midi(int *st)
 	
 	previous_message[0] = st[0];
 	previous_message[1] = st[2];
+	*/
 	
 	if (st[0] == MIDI_NOTEON) {
 		loop_created = 0;
@@ -229,11 +251,15 @@ void lp_handle_midi(int *st)
 					/* If song is stopped, set the starting order */
 					song_set_current_order(lp_grid_button_hex_to_int(st[2]));
 					queued_order = lp_grid_button_hex_to_int(st[2]);
-					lp_update_grid();
+					lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
 				} else {
 					/* Check if there is more than one button pressed and enable loop if so */
 					for (int i=0;i<64;i++) {
 						if (lp_grid_buttons_down[i] == 1) {
+							/* Check if there is already a loop defined and make the buttons stop blinking */
+							if (loop.start != -1 && loop.end != -1)
+								lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_AMBER_LOW);
+							/* The two buttons might be pressed in either order, check that */
 							if (i > lp_grid_button_hex_to_int(st[2])) {
 								loop.start = lp_grid_button_hex_to_int(st[2]);
 								loop.end = i;
@@ -241,6 +267,7 @@ void lp_handle_midi(int *st)
 								loop.start = i;
 								loop.end = lp_grid_button_hex_to_int(st[2]);
 							}
+							/* If we're already in the loop start pattern, mark it active */
 							if (song_get_current_order == loop.start) {
 								loop.active = 1;
 								log_appendf(3,"loop activated");
@@ -300,13 +327,17 @@ void lp_handle_midi(int *st)
 			if (loop_created == 0) {
 				int next_order = lp_grid_button_hex_to_int(st[2]);
 				song_set_next_order(next_order);
+				if (queued_order != -1)
+					lp_set_grid_led(queued_order,LP_LED_AMBER_LOW);
 				queued_order = next_order;
 				log_appendf(3,"queued order: %d",next_order);
-				if (loop.start != -1) {						
+				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+				if (loop.start != -1) {			
+					lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_AMBER_LOW);
 					loop.active = 0;
 					loop.start = -1;
 					loop.end = -1;
-					log_appendf(3,"loop deactivated");
+					log_appendf(3,"loop deactivated");	
 				}
 			}
 			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
