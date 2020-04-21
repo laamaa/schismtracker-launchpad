@@ -8,6 +8,7 @@
 #include "page.h"
 #include "time.h"
 #include <stdio.h>
+#include <math.h>
 
 
 
@@ -17,13 +18,19 @@ typedef struct lp_loop {
 	int active;
 } lp_loop;
 
+typedef struct lp_mute {
+	int active;
+	int channels[128];
+} lp_mute;
+
 lp_loop loop = {-1,-1,0};
+lp_mute mute = {0, {0}};
 int active_order = 0;
 int queued_order = -1;
 int lp_port;
 const int lp_vu_colors[8]={LP_LED_OFF,LP_LED_GREEN_LOW,LP_LED_GREEN_FULL,LP_LED_YELLOW_FULL,LP_LED_AMBER_LOW,LP_LED_AMBER_FULL,LP_LED_RED_LOW,LP_LED_RED_FULL};
 
-double get_time_ms()
+double _get_time_ms()
 {
 	struct timeval t;
 	gettimeofday(&t, NULL);
@@ -40,7 +47,7 @@ void lp_set_port(int num)
 	if (num > -1) lp_port = num;
 }
 
-void push_keyboard_enter_event()
+void _push_keyboard_enter_event()
 {
 	SDL_Event sdlevent = {};
 	sdlevent.type = SDL_KEYDOWN;
@@ -49,6 +56,33 @@ void push_keyboard_enter_event()
 	sdlevent.type = SDL_KEYUP;
 	sdlevent.key.keysym.sym = SDLK_RETURN;
 	SDL_PushEvent(&sdlevent);
+}
+
+/* Return the hex code for a LP grid button, values 1-64 */
+int lp_grid_buttoncode(int val)
+{
+	if (val >= 0 && val < 64) {
+		int ledRow;
+		ledRow = val/8;
+		return 0x00+(0x10*ledRow)+(val-(ledRow*8));
+	}
+	return 0;
+}
+
+int lp_grid_button_hex_to_int(int val)
+{
+	int ledRow;
+	ledRow = val/0x10;
+	return val-(ledRow*8);
+}
+
+int lp_is_hex_code_grid_button(int val)
+{
+	if (val == LP_BTN_SCENE_A || val == LP_BTN_SCENE_B || val == LP_BTN_SCENE_C || val == LP_BTN_SCENE_D || val == LP_BTN_SCENE_E || val == LP_BTN_SCENE_F || val == LP_BTN_SCENE_G || val == LP_BTN_SCENE_H){
+		return 0;
+	} else {
+		return 1;
+	}
 }
 
 void lp_check_loop_state()
@@ -78,20 +112,33 @@ void lp_set_automap_led(int num, int color)
 	midi_send_flush();	
 }
 
+void lp_set_grid_led(int num, int color)
+{
+	unsigned char buf[3];
+	buf[0] = 0x90; //Note on = LED on
+	buf[1] = lp_grid_buttoncode(num);
+	buf[2] = color;
+	midi_send_now_launchpad((unsigned char *)buf, 3);
+	midi_send_flush();
+}
+
 /* LP automap leds (top row 1-8 btns) act as VU meters and mute/solo buttons */
 void lp_update_vu_meters()
 {
 	static double vu_timer_start = 0;
 	if (vu_timer_start = 0)
-		vu_timer_start = get_time_ms();
-	if ((song_get_mode() == MODE_PLAYING || song_get_mode() == MODE_SINGLE_STEP) && get_time_ms() - vu_timer_start > 100) {
+		vu_timer_start = _get_time_ms();
+	if ((song_get_mode() == MODE_PLAYING || song_get_mode() == MODE_SINGLE_STEP) && _get_time_ms() - vu_timer_start > 100) {
 		vu_timer_start = 0;
 		for (int i=0; i<8; i++){
 			song_voice_t *voice = current_song->voices + i;
 			if (!(voice->current_sample_data && voice->length))
 				continue;
-			int vu = voice->vu_meter >> 2;
-			lp_set_automap_led(i,lp_vu_colors[(int)round((vu+1)/8)]);
+			int vu = voice->vu_meter / 16;
+			if (vu > 0 && vu < 1) vu = 1;
+			if (vu > 7) vu = 7;
+			if (current_song->channels[i].flags & CHN_MUTE) vu = -1; //Muted channels should be flashing red
+			if (vu != -1) lp_set_automap_led(i,lp_vu_colors[vu]);
 		}
 	}
 }
@@ -110,33 +157,6 @@ void lp_check_active_order()
 		if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID)
 			status.lp_flags &= ~(LP_UPDATE_GRID);
 		//lp_update_grid();
-	}
-}
-
-/* Return the hex code for a LP grid button, values 1-64 */
-int lp_grid_buttoncode(int val)
-{
-	if (val >= 0 && val < 64) {
-		int ledRow;
-		ledRow = val/8;
-		return 0x00+(0x10*ledRow)+(val-(ledRow*8));
-	}
-	return 0;
-}
-
-int lp_grid_button_hex_to_int(int val)
-{
-	int ledRow;
-	ledRow = val/0x10;
-	return val-(ledRow*8);
-}
-
-int lp_is_hex_code_grid_button(int val)
-{
-	if (val == LP_BTN_SCENE_A || val == LP_BTN_SCENE_B || val == LP_BTN_SCENE_C || val == LP_BTN_SCENE_D || val == LP_BTN_SCENE_E || val == LP_BTN_SCENE_F || val == LP_BTN_SCENE_G || val == LP_BTN_SCENE_H){
-		return 0;
-	} else {
-		return 1;
 	}
 }
 
@@ -193,16 +213,6 @@ void lp_initialize()
 	lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_LOW);
 }
 
-void lp_set_grid_led(int num, int color)
-{
-	unsigned char buf[3];
-	buf[0] = 0x90; //Note on = LED on
-	buf[1] = lp_grid_buttoncode(num);
-	buf[2] = color;
-	midi_send_now_launchpad((unsigned char *)buf, 3);
-	midi_send_flush();
-}
-
 void lp_turn_on_all_leds()
 {
 	unsigned char buf[3];
@@ -236,6 +246,7 @@ void lp_update_grid()
 				queued_order = -1;			
 			if (queued_order > -1 && loop.start == -1)
 				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+			if (mute.active) lp_set_led(LP_BTN_SCENE_A,LP_LED_RED_FLASH);
 			if (song_get_mode() == MODE_STOPPED)
 				lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_FULL); // Because we reset the controller when switching pages, we need to check this as well...
 			else
@@ -244,29 +255,42 @@ void lp_update_grid()
 	}
 }
 
+int lp_is_mute_active()
+{
+	int count = 0;
+	for (int i=0; i<128; i++)
+		if (mute.channels[i] == 1) return 1;
+	return 0;
+}
+
+void lp_unmute_all()
+{
+	for (int i=0; i<128; i++)
+		if (mute.channels[i] == 1) song_toggle_channel_mute(i);
+	orderpan_recheck_muted_channels();
+}
+
+/* This handles LP top row buttons: mute / solo */
+void lp_handle_midi_cc(int *st)
+{
+	if (st[2] >= 0x68 && st[2] <= 0x6f && st[0] == 0x7f) {
+		int channel = st[2]-0x68;
+		song_toggle_channel_mute(channel);
+		mute.channels[channel] = !mute.channels[channel];
+		orderpan_recheck_muted_channels();
+		if (lp_is_mute_active()) {
+			mute.active = 1;
+			lp_set_led(LP_BTN_SCENE_A,LP_LED_RED_FLASH);
+		}
+		lp_set_automap_led(st[2]-0x68,LP_LED_RED_FLASH); //we can set the led to flashing red in either case, VU update will override if it when unmuted
+	}
+}
+
+/* This handles LP grid button presses */
 void lp_handle_midi(int *st)
 {
 	static int lp_grid_buttons_down[64];
-	/* static int previous_message[2];
-	static double debounce_start, debounce_end = 0; */
 	static int loop_created = 0;
-	
-	/*
-	if (debounce_start == 0)
-		debounce_start = get_time_ms();
-		
-	if (previous_message[0] == st[0] && previous_message[1] == st[2])
-	{
-		debounce_end = get_time_ms();
-		if (debounce_end-debounce_start < 20){
-			debounce_start=0;
-			return;
-		}
-	}
-	
-	previous_message[0] = st[0];
-	previous_message[1] = st[2];
-	*/
 	
 	if (st[0] == MIDI_NOTEON) {
 		loop_created = 0;
@@ -316,7 +340,7 @@ void lp_handle_midi(int *st)
 			switch (st[2]) {
 				case LP_BTN_SCENE_H:
 					if (status.current_page == PAGE_ABOUT || status.current_page == PAGE_LOAD_MODULE) {
-						push_keyboard_enter_event();
+						_push_keyboard_enter_event();
 					} else {
 						/* Playback & Looping control */
 						if (song_get_mode() == MODE_PLAYING) {
@@ -343,7 +367,11 @@ void lp_handle_midi(int *st)
 					lp_update_grid();
 					break;
 				case LP_BTN_SCENE_A:
-					/* TODO Shift button: solo channels instead of muting */
+					/* If mute is active, unmute all */
+					if (mute.active) {
+						lp_unmute_all();
+						lp_set_led(LP_BTN_SCENE_A,LP_LED_OFF);
+					}
 					break;
 			}
 		}

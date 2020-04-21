@@ -1010,7 +1010,7 @@ int midi_engine_handle_event(void *ev)
 		lp_handle_midi(st);
 		break;
 	case SCHISM_EVENT_MIDI_LP_CONTROLLER:
-		/* Launchpad top row buttons */
+		lp_handle_midi_cc(st);
 		break;
 	case SCHISM_EVENT_MIDI_NOTE:
 		if (st[0] == MIDI_NOTEON) {
