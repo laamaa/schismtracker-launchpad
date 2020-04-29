@@ -986,6 +986,11 @@ int get_flist_num_files()
 	return flist.num_files;
 }
 
+char * get_current_filename()
+{
+	return flist.files[current_file]->base;
+}
+
 /* --------------------------------------------------------------------- */
 
 /* FIXME what are these for? apart from clearing the directory list constantly */

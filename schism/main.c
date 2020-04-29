@@ -42,6 +42,8 @@
 
 #include "launchpad.h"
 
+#include "lcdcontrol.h"
+
 #include "osdefs.h"
 
 #include <errno.h>
@@ -52,6 +54,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #ifndef WIN32
 # include <signal.h>
@@ -129,6 +132,11 @@ static void display_init(void)
 	display_print_info();
 	set_key_repeat(0, 0); /* 0 = defaults */
 	SDL_EnableUNICODE(1);
+	
+	pthread_t lcd_thread;
+	int err;
+	if ((err=pthread_create(&lcd_thread,NULL,&lcd_update,NULL)))
+		fprintf(stderr,"LCD thread creation failed: %d\n",err);
 }
 
 static void check_update(void);

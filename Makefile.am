@@ -105,6 +105,7 @@ noinst_HEADERS = \
 	include/it_defs.h		\
 	include/it.h			\
 	include/launchpad.h		\
+	include/lcdcontrol.h	\
 	include/log.h			\
 	include/midi.h			\
 	include/osdefs.h		\
@@ -337,6 +338,7 @@ schismtracker_SOURCES = \
 	schism/fakemem.c		\
 	schism/version.c		\
 	schism/launchpad.c		\
+	schism/lcdcontrol.c		\
 	player/csndfile.c		\
 	player/mixutil.c		\
 	player/equalizer.c		\
@@ -366,10 +368,13 @@ schism/version.$(OBJEXT): $(filter-out schism/version.$(OBJEXT),$(schismtracker_
 
 cflags_fmopl=-DHAS_YM3812=1 -DHAS_Y8950=0 -DHAS_YM3526=0
 
+cflags_pthread=-pthread
+
 AM_CPPFLAGS = -D_USE_AUTOCONF -D_GNU_SOURCE -I$(srcdir)/include -I.
 AM_CFLAGS = $(SDL_CFLAGS) $(cflags_alsa) $(cflags_oss) \
 	$(cflags_network) $(cflags_x11) $(cflags_fmopl) \
-	$(cflags_version) $(cflags_win32) $(cflags_wii)
+	$(cflags_version) $(cflags_win32) $(cflags_wii) \
+	$(cflags_pthread)
 AM_OBJCFLAGS = $(AM_CFLAGS)
 
 schismtracker_DEPENDENCIES = $(files_windres)
