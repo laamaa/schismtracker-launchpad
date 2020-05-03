@@ -496,7 +496,7 @@ void song_start_once(void)
 	max_channels_used = 0;
 	current_song->repeat_count = -1; // FIXME do this right
 
-	GM_SendSongStartCode();
+	//GM_SendSongStartCode();
 	song_unlock_audio();
 	main_song_mode_changed_cb();
 
@@ -510,7 +510,7 @@ void song_start(void)
 	song_reset_play_state();
 	max_channels_used = 0;
 
-	GM_SendSongStartCode();
+	//GM_SendSongStartCode();
 	song_unlock_audio();
 	main_song_mode_changed_cb();
 
@@ -626,7 +626,7 @@ void song_loop_pattern(int pattern, int row)
 	max_channels_used = 0;
 	csf_loop_pattern(current_song, pattern, row);
 
-	GM_SendSongStartCode();
+	//GM_SendSongStartCode();
 
 	song_unlock_audio();
 	main_song_mode_changed_cb();
@@ -644,7 +644,7 @@ void song_start_at_order(int order, int row)
 	current_song->break_row = row;
 	max_channels_used = 0;
 
-	GM_SendSongStartCode();
+	//GM_SendSongStartCode();
 	/* TODO: GM_SendSongPositionCode(calculate the number of 1/16 notes) */
 	song_unlock_audio();
 	main_song_mode_changed_cb();

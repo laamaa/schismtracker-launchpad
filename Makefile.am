@@ -105,7 +105,6 @@ noinst_HEADERS = \
 	include/it_defs.h		\
 	include/it.h			\
 	include/launchpad.h		\
-	include/lcdcontrol.h	\
 	include/log.h			\
 	include/midi.h			\
 	include/osdefs.h		\
@@ -129,7 +128,8 @@ noinst_HEADERS = \
 	sys/wii/certs_bin.h		\
 	sys/wii/su_tik_bin.h		\
 	sys/wii/su_tmd_bin.h		\
-	sys/win32/wine-ddraw.h
+	sys/win32/wine-ddraw.h		\
+	sys/rpi/lcdcontrol.h
 
 dist_man_MANS = sys/posix/schismtracker.1
 
@@ -170,6 +170,11 @@ else
 cflags_alsa=-DUSE_ALSA
 lib_asound=-lasound
 endif
+endif
+
+if USE_LCD
+files_rpi = sys/rpi/lcdcontrol.c
+cflags_rpi = -DLCD -I$(srcdir)/sys/rpi
 endif
 
 if USE_OSS
@@ -338,7 +343,6 @@ schismtracker_SOURCES = \
 	schism/fakemem.c		\
 	schism/version.c		\
 	schism/launchpad.c		\
-	schism/lcdcontrol.c		\
 	player/csndfile.c		\
 	player/mixutil.c		\
 	player/equalizer.c		\
@@ -361,20 +365,19 @@ schismtracker_SOURCES = \
 	$(files_stdlib)			\
 	$(files_mmap)			\
 	$(files_wii)			\
-	$(files_windres)
+	$(files_windres)		\
+	$(files_rpi)
 
 # have version.o rely on all files
 schism/version.$(OBJEXT): $(filter-out schism/version.$(OBJEXT),$(schismtracker_OBJECTS)) $(HEADERS)
 
 cflags_fmopl=-DHAS_YM3812=1 -DHAS_Y8950=0 -DHAS_YM3526=0
 
-cflags_pthread=-pthread
-
 AM_CPPFLAGS = -D_USE_AUTOCONF -D_GNU_SOURCE -I$(srcdir)/include -I.
 AM_CFLAGS = $(SDL_CFLAGS) $(cflags_alsa) $(cflags_oss) \
 	$(cflags_network) $(cflags_x11) $(cflags_fmopl) \
 	$(cflags_version) $(cflags_win32) $(cflags_wii) \
-	$(cflags_pthread)
+	$(cflags_rpi)
 AM_OBJCFLAGS = $(AM_CFLAGS)
 
 schismtracker_DEPENDENCIES = $(files_windres)

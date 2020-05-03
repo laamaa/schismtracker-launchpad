@@ -40,10 +40,6 @@
 #include "midi.h"
 #include "dmoz.h"
 
-#include "launchpad.h"
-
-#include "lcdcontrol.h"
-
 #include "osdefs.h"
 
 #include <errno.h>
@@ -54,10 +50,15 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #ifndef WIN32
 # include <signal.h>
+#endif
+
+#include "launchpad.h"
+
+#ifdef LCD
+#include "lcdcontrol.h"
 #endif
 
 #include <getopt.h>
@@ -132,11 +133,13 @@ static void display_init(void)
 	display_print_info();
 	set_key_repeat(0, 0); /* 0 = defaults */
 	SDL_EnableUNICODE(1);
-	
-	pthread_t lcd_thread;
-	int err;
-	if ((err=pthread_create(&lcd_thread,NULL,&lcd_update,NULL)))
-		fprintf(stderr,"LCD thread creation failed: %d\n",err);
+	#ifdef LCD	
+	SDL_Thread *lcd_thread;
+	SDL_CreateThread(lcd_thread, "LCDThread", (void *)NULL);
+	if (NULL == thread) {
+		fprintf(stderr,"Failed to create LCD thread: %s\n", SDL_GetError());
+    }
+    #endif
 }
 
 static void check_update(void);

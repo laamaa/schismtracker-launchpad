@@ -988,7 +988,10 @@ int get_flist_num_files()
 
 char * get_current_filename()
 {
-	return flist.files[current_file]->base;
+	if (flist.num_files > 0 && flist.num_files >= current_file)
+		return flist.files[current_file]->base;
+	else
+		return "No files";
 }
 
 /* --------------------------------------------------------------------- */

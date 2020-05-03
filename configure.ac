@@ -113,7 +113,8 @@ else
         AM_CONDITIONAL([am__fastdepOBJC], false)
 fi
 
-
+dnl Raspberry pi LCD, check if arduipi libraries exist
+AC_CHECK_HEADERS([ArduiPi_OLED_lib.h ArduiPi_OLED_C.h], [AM_CONDITIONAL([USE_LCD],true)],[AM_CONDITIONAL([USE_LCD],false)],,)
 
 dnl winmm testing...
 AC_CHECK_HEADERS(winsock.h winsock2.h windows.h)
