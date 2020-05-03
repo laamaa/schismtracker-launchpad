@@ -21,7 +21,7 @@ typedef struct lcd_playhead {
 } lcd_playhead;
 
 /* main.c creates this as a thread on startup */
-void *lcd_update()
+int lcd_update(void *ptr)
 {
 	lcd_playhead ph;
 	ph.current_row = -1;
@@ -35,7 +35,7 @@ void *lcd_update()
 
     PiOLED_SetTextSize(2);
     PiOLED_SetTextColor(WHITE);
-	
+
 	do {
 		switch (status.current_page) {
 			case PAGE_ABOUT:
@@ -74,8 +74,9 @@ void *lcd_update()
 					PiOLED_FillRect(0,0,16,16,WHITE);
 				}
 				break;
-		}		
+		}
 		usleep(1000);
 	} while (1);
+	return 0;
 }
 #endif

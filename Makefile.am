@@ -174,7 +174,7 @@ endif
 
 if USE_LCD
 files_rpi = sys/rpi/lcdcontrol.c
-cflags_rpi = -DLCD -I$(srcdir)/sys/rpi
+cflags_rpi = -DLCD -I$(srcdir)/sys/rpi -lArduiPi_OLED
 endif
 
 if USE_OSS

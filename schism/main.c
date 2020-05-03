@@ -134,12 +134,12 @@ static void display_init(void)
 	set_key_repeat(0, 0); /* 0 = defaults */
 	SDL_EnableUNICODE(1);
 	#ifdef LCD	
-	SDL_Thread *lcd_thread;
-	SDL_CreateThread(lcd_thread, "LCDThread", (void *)NULL);
-	if (NULL == thread) {
+	SDL_Thread *lcdthread;
+	lcdthread = SDL_CreateThread(lcd_update, (void *)NULL);
+	if (NULL == lcdthread) {
 		fprintf(stderr,"Failed to create LCD thread: %s\n", SDL_GetError());
-    }
-    #endif
+	}
+	#endif
 }
 
 static void check_update(void);
