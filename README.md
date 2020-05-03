@@ -1,6 +1,6 @@
 # Schism Tracker
 
-This is laamaa's fork of Schism Tracker. It adds support for controlling the application/playback with a Novation Launchpad controller. The aim is to make playing modules without a display possible. Development done with a Launchpad Mini MK2 in Linux, no idea if this works under any other platforms.
+This is laamaa's fork of Schism Tracker. It adds support for controlling the application/playback with a Novation Launchpad controller and to see playback information with an OLED display on a Raspberry Pi. The aim is to make playing modules without a display possible. Development done in Linux with a Launchpad Mini MK2 and SH1106 based OLED connected via Raspberry PI's I2C pins, no idea if this works under any other platforms.
 
 How to set up Launchpad & Schism:
 * Connect the Launchpad via USB
@@ -10,6 +10,10 @@ How to set up Launchpad & Schism:
 * *Scene F* button brings up "Load module" page, select the desired file with grid buttons and load with *Scene H*. Pressing *Scene F* again returns to the previous page.
 * *Scene H* starts/stops playback
 * The next order can be queued by pressing the corresponding button on the order grid.
+* Loop sequences can be created by pressing two orders in the grid simultaneously
+* Top row buttons show channel activity and can be used to mute channels. Unmute all by pressing *Scene A*
+
+OLED display support requires the [ArduiPi_OLED library with C headers](https://github.com/destroyedlolo/ArduiPi_OLED) and a compatible I2C display. The autoconf script should recognize if the headers are installed and enable the support if so.
 
 -----
 
