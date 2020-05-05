@@ -986,6 +986,14 @@ int get_flist_num_files()
 	return flist.num_files;
 }
 
+char * get_current_filename()
+{
+	if (flist.num_files > 0 && flist.num_files >= current_file)
+		return flist.files[current_file]->base;
+	else
+		return "No files";
+}
+
 /* --------------------------------------------------------------------- */
 
 /* FIXME what are these for? apart from clearing the directory list constantly */

@@ -728,7 +728,7 @@ void GM_IncrementSongCounter(int count)
 
 	if (n_Ticks) {
 		for (int a = 0; a < n_Ticks; ++a)
-			GM_SendSongTickCode();
+			//GM_SendSongTickCode();
 
 		LastSongCounter -= n_Ticks;
 	}

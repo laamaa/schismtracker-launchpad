@@ -40,8 +40,6 @@
 #include "midi.h"
 #include "dmoz.h"
 
-#include "launchpad.h"
-
 #include "osdefs.h"
 
 #include <errno.h>
@@ -55,6 +53,12 @@
 
 #ifndef WIN32
 # include <signal.h>
+#endif
+
+#include "launchpad.h"
+
+#ifdef LCD
+#include "lcdcontrol.h"
 #endif
 
 #include <getopt.h>
@@ -129,6 +133,13 @@ static void display_init(void)
 	display_print_info();
 	set_key_repeat(0, 0); /* 0 = defaults */
 	SDL_EnableUNICODE(1);
+	#ifdef LCD	
+	SDL_Thread *lcdthread;
+	lcdthread = SDL_CreateThread(lcd_update, (void *)NULL);
+	if (NULL == lcdthread) {
+		fprintf(stderr,"Failed to create LCD thread: %s\n", SDL_GetError());
+	}
+	#endif
 }
 
 static void check_update(void);
@@ -484,6 +495,7 @@ static void check_update(void)
 				return;
 			next = SDL_GetTicks() + 100;
 		}
+		lp_update_vu_meters();
 		lp_check_active_order();
 		redraw_screen();
 		video_refresh();
