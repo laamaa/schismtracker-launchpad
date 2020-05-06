@@ -10,7 +10,12 @@
 #include <stdio.h>
 #include <math.h>
 
-
+enum lp_view {
+	about,
+	orders,
+	channels,
+	files
+};
 
 typedef struct lp_loop {
 	int start;
@@ -23,11 +28,19 @@ typedef struct lp_mute {
 	int channels[128];
 } lp_mute;
 
+typedef struct lp_state {
+	int midiport;
+	enum lp_view active_view;
+	int active_order;
+	int queued_order;
+} lp_state;
+
+lp_state state = {-1,about,0,-1};
 lp_loop loop = {-1,-1,0};
 lp_mute mute = {0, {0}};
 int active_order = 0;
 int queued_order = -1;
-int lp_port;
+
 const int lp_vu_colors[8]={LP_LED_OFF,LP_LED_GREEN_LOW,LP_LED_GREEN_FULL,LP_LED_YELLOW_FULL,LP_LED_AMBER_LOW,LP_LED_AMBER_FULL,LP_LED_RED_LOW,LP_LED_RED_FULL};
 
 double _get_time_ms()
@@ -39,12 +52,12 @@ double _get_time_ms()
 
 int lp_get_port()
 {
-	return lp_port;
+	return state.midiport;
 }
 
 void lp_set_port(int num)
 {
-	if (num > -1) lp_port = num;
+	if (num > -1) state.midiport = num;
 }
 
 void _push_keyboard_enter_event()
@@ -146,14 +159,14 @@ void lp_update_vu_meters()
 /* Checks if the song has advanced to the next order and the grid should be updated */
 void lp_check_active_order()
 {
-	if (active_order != song_get_current_order()) {
-		if (song_get_current_order() == queued_order) queued_order = -1;
+	if (state.active_order != song_get_current_order()) {
+		if (song_get_current_order() == state.queued_order) state.queued_order = -1;
 		if (status.current_page != PAGE_LOAD_MODULE)
-			lp_set_grid_led(active_order,(loop.active == 1 && active_order >= loop.start && active_order <= loop.end) ? LP_LED_YELLOW_FLASH : LP_LED_AMBER_LOW);
-		active_order = song_get_current_order();
+			lp_set_grid_led(state.active_order,(loop.active == 1 && state.active_order >= loop.start && state.active_order <= loop.end) ? LP_LED_YELLOW_FLASH : LP_LED_AMBER_LOW);
+		state.active_order = song_get_current_order();
 		lp_check_loop_state();
 		if (status.current_page != PAGE_LOAD_MODULE)
-			lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
+			lp_set_grid_led(state.active_order,LP_LED_GREEN_FULL);
 		if (status.lp_flags & LP_UPDATE_GRID == LP_UPDATE_GRID)
 			status.lp_flags &= ~(LP_UPDATE_GRID);
 		//lp_update_grid();
@@ -206,7 +219,7 @@ void lp_draw_grid(int start, int num, int color)
 void lp_initialize()
 {
 	/* Called after LP has been found */
-	if (!lp_port)
+	if (!state.midiport)
 		return;
 		
 	lp_resetall();
@@ -228,9 +241,11 @@ void lp_update_grid()
 	int num_files;
 	switch (status.current_page) {
 		case PAGE_ABOUT:
+			state.active_view = about;
 			lp_turn_on_all_leds();
 			break;
 		case PAGE_LOAD_MODULE:
+			state.active_view = files;
 			num_files = get_flist_num_files();
 			lp_draw_grid(0,num_files,LP_LED_RED_LOW);
 			lp_set_grid_led(get_current_file(),LP_LED_GREEN_FULL);
@@ -241,11 +256,11 @@ void lp_update_grid()
 			lp_draw_grid(0,csf_get_num_orders(current_song),LP_LED_AMBER_LOW);
 			if (loop.start != -1 && loop.end != -1)
 				lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_YELLOW_FLASH);
-			lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
-			if (active_order == queued_order)
-				queued_order = -1;			
-			if (queued_order > -1 && loop.start == -1)
-				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+			lp_set_grid_led(state.active_order,LP_LED_GREEN_FULL);
+			if (state.active_order == state.queued_order)
+				state.queued_order = -1;			
+			if (state.queued_order > -1 && loop.start == -1)
+				lp_set_grid_led(state.queued_order,LP_LED_GREEN_FLASH);
 			if (mute.active) lp_set_led(LP_BTN_SCENE_A,LP_LED_RED_FLASH);
 			if (song_get_mode() == MODE_STOPPED)
 				lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_FULL); // Because we reset the controller when switching pages, we need to check this as well...
@@ -253,6 +268,7 @@ void lp_update_grid()
 				lp_set_led(LP_BTN_SCENE_H,LP_LED_GREEN_FULL);
 			break;
 	}
+	
 }
 
 int lp_is_mute_active()
@@ -265,6 +281,7 @@ int lp_is_mute_active()
 
 void lp_unmute_all()
 {
+	mute.active = 0;
 	for (int i=0; i<128; i++)
 		if (mute.channels[i] == 1) song_toggle_channel_mute(i);
 	orderpan_recheck_muted_channels();
@@ -304,8 +321,8 @@ void lp_handle_midi(int *st)
 				if (song_get_mode() == MODE_STOPPED) {
 					/* If song is stopped, set the starting order */
 					song_set_current_order(lp_grid_button_hex_to_int(st[2]));
-					queued_order = lp_grid_button_hex_to_int(st[2]);
-					lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+					state.queued_order = lp_grid_button_hex_to_int(st[2]);
+					lp_set_grid_led(state.queued_order,LP_LED_GREEN_FLASH);
 				} else {
 					/* Check if there is more than one button pressed and enable loop if so */
 					for (int i=0;i<64;i++) {
@@ -325,9 +342,9 @@ void lp_handle_midi(int *st)
 							if (song_get_current_order() == loop.start)
 								loop.active = 1;
 							lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_YELLOW_FLASH);
-							lp_set_grid_led(active_order,LP_LED_GREEN_FULL);
+							lp_set_grid_led(state.active_order,LP_LED_GREEN_FULL);
 							song_set_next_order(loop.start);
-							queued_order = loop.start;
+							state.queued_order = loop.start;
 							loop_created = 1;
 							break;
 						}
@@ -347,8 +364,8 @@ void lp_handle_midi(int *st)
 							song_stop();
 							lp_set_led(LP_BTN_SCENE_H,LP_LED_RED_FULL);
 						} else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP) {
-							if (queued_order > -1) {
-								song_start_at_order(queued_order,0);
+							if (state.queued_order > -1) {
+								song_start_at_order(state.queued_order,0);
 							} else {
 								song_start_at_order(song_get_current_order(),0);
 							}
@@ -381,10 +398,10 @@ void lp_handle_midi(int *st)
 			if (loop_created == 0) {
 				int next_order = lp_grid_button_hex_to_int(st[2]);
 				song_set_next_order(next_order);
-				if (queued_order != -1)
-					lp_set_grid_led(queued_order,LP_LED_AMBER_LOW);
-				queued_order = next_order;
-				lp_set_grid_led(queued_order,LP_LED_GREEN_FLASH);
+				if (state.queued_order != -1)
+					lp_set_grid_led(state.queued_order,LP_LED_AMBER_LOW);
+				state.queued_order = next_order;
+				lp_set_grid_led(state.queued_order,LP_LED_GREEN_FLASH);
 				if (loop.start != -1) {			
 					lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_AMBER_LOW);
 					loop.active = 0;
