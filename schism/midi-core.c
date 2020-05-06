@@ -57,6 +57,8 @@ static SDL_cond *midi_play_cond = NULL;
 
 static struct midi_provider *port_providers = NULL;
 
+static int buffer_size;
+static int sample_rate;
 
 /* all this just for usleep?! (maybe we should have sys/win32/usleep.c) */
 #ifdef WIN32
@@ -648,7 +650,8 @@ static int midims, ms10s, qlen;
 
 void midi_queue_alloc(int my_audio_buffer_samples, int sample_size, int samples_per_second)
 {
-	int buffer_size = (my_audio_buffer_samples * sample_size);
+	buffer_size = (my_audio_buffer_samples * sample_size);
+	sample_rate = samples_per_second;
 
 	if (qq) {
 		free(qq);
@@ -657,7 +660,7 @@ void midi_queue_alloc(int my_audio_buffer_samples, int sample_size, int samples_
 
 	/* how long is the audio buffer in 10 msec?
 	 * well, (sample_size*samples_per_second)/80 is the number of bytes per msec
-	 */
+	 */	
 	midims = sample_size * samples_per_second;
 	if ((midims % 80) != 0) midims += (80 - (midims % 80));
 	ms10s = midims / 80;
@@ -785,9 +788,10 @@ void midi_send_buffer(const unsigned char *data, unsigned int len, unsigned int 
 	}
 
 	/* pos is still in miliseconds */
-	if (midims != 0 && _midi_send_unlocked(data, len, pos/midims, 2)) {
+	int delay = (1000 * (((buffer_size/2) - pos)) / sample_rate);
+	if (midims != 0 && _midi_send_unlocked(data, len, delay, 2)) {
 		/* grr, we need a timer */
-
+		
 		/* calculate pos in buffer */
 		pos /= ms10s;
 		assert(((unsigned)pos) < ((unsigned)qlen));

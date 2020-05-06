@@ -44,11 +44,10 @@
 
 #define PORT_NAME       "Schism Tracker"
 
-
 static snd_seq_t *seq;
 static int local_port = -1;
 
-#define MIDI_BUFSIZE    65536
+#define MIDI_BUFSIZE    32768
 static unsigned char big_midi_buf[MIDI_BUFSIZE];
 static int alsa_queue;
 
@@ -202,6 +201,7 @@ static void _alsa_send(struct midi_port *p, const unsigned char *data, unsigned 
 {
 	struct alsa_midi *ex;
 	snd_seq_event_t ev;
+	snd_seq_real_time_t time;
 	long rr;
 
 	ex = (struct alsa_midi *)p->userdata;
@@ -467,8 +467,8 @@ int alsa_midi_setup(void)
 
 	alsa_queue = snd_seq_alloc_queue(seq);
 	snd_seq_queue_tempo_malloc(&tempo);
-	snd_seq_queue_tempo_set_tempo(tempo,480000);
-	snd_seq_queue_tempo_set_ppq(tempo, 480);
+	snd_seq_queue_tempo_set_tempo(tempo,250000);
+	snd_seq_queue_tempo_set_ppq(tempo, 250);
 	snd_seq_set_queue_tempo(seq, alsa_queue, tempo);
 	snd_seq_start_queue(seq, alsa_queue, NULL);
 	snd_seq_drain_output(seq);
