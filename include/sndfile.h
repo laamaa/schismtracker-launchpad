@@ -67,9 +67,10 @@
 //#define CHN_NOREVERB          0x8000000
 #define CHN_NNAMUTE             0x10000000 // turn off mute, but have it reset later
 #define CHN_ADLIB               0x20000000 // OPL mode
+#define CHN_MIDI                0x40000000 // MIDI is active
 
 #define CHN_SAMPLE_FLAGS (CHN_16BIT | CHN_LOOP | CHN_PINGPONGLOOP | CHN_SUSTAINLOOP \
-	| CHN_PINGPONGSUSTAIN | CHN_PANNING | CHN_STEREO | CHN_PINGPONGFLAG | CHN_ADLIB)
+	| CHN_PINGPONGSUSTAIN | CHN_PANNING | CHN_STEREO | CHN_PINGPONGFLAG | CHN_ADLIB | CHN_MIDI)
 
 
 #define ENV_VOLUME              0x0001

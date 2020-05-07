@@ -717,6 +717,13 @@ static inline void update_vu_meter(song_voice_t *chan)
 		vutmp *= n;
 		vutmp >>= 7; // 0..255
 		chan->vu_meter = vutmp;
+	} else if (chan->flags & CHN_MIDI) {
+		if (chan->strike == 1)
+			chan->vu_meter=chan->volume;
+		if (chan->vu_meter > VUMETER_DECAY/2)
+			chan->vu_meter -= VUMETER_DECAY/2;
+		else
+			chan->vu_meter = 0;
 	} else {
 		chan->vu_meter = 0;
 	}

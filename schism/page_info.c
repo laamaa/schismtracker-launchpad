@@ -263,9 +263,6 @@ static void info_draw_samples(int base, int height, int active, int first_channe
 			fg = active ? 1 : 0;
 		draw_text(numtostr(2, c, buf), 2, pos, fg, 2);
 
-		if (!(voice->current_sample_data && voice->length))
-			continue;
-
 		/* first box: vu meter */
 		if (velocity_mode)
 			vu = voice->final_volume >> 8;
@@ -277,6 +274,9 @@ static void info_draw_samples(int base, int height, int active, int first_channe
 			fg = 5; fg2 = 4;
 		}
 		draw_vu_meter(5, pos, 24, vu, fg, fg2);
+
+		if (!(voice->current_sample_data && voice->length))
+			continue;
 
 		/* second box: sample number/name */
 		ins = song_get_instrument_number(voice->ptr_instrument);
