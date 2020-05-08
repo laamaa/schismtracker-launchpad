@@ -201,7 +201,6 @@ static void _alsa_send(struct midi_port *p, const unsigned char *data, unsigned 
 {
 	struct alsa_midi *ex;
 	snd_seq_event_t ev;
-	snd_seq_real_time_t time;
 	long rr;
 
 	ex = (struct alsa_midi *)p->userdata;
@@ -213,7 +212,10 @@ static void _alsa_send(struct midi_port *p, const unsigned char *data, unsigned 
 		if (!delay) {
 			snd_seq_ev_set_direct(&ev);
 		} else {
-			snd_seq_ev_schedule_tick(&ev, alsa_queue, 1, delay);
+			snd_seq_real_time_t rtime;
+			rtime.tv_sec = delay / 1000;
+			rtime.tv_nsec = (delay % 1000) * 1000000;
+			snd_seq_ev_schedule_real(&ev, alsa_queue, 0, &rtime);
 		}
 
 		/* we handle our own */
@@ -466,10 +468,6 @@ int alsa_midi_setup(void)
 	}
 
 	alsa_queue = snd_seq_alloc_queue(seq);
-	snd_seq_queue_tempo_malloc(&tempo);
-	snd_seq_queue_tempo_set_tempo(tempo,250000);
-	snd_seq_queue_tempo_set_ppq(tempo, 250);
-	snd_seq_set_queue_tempo(seq, alsa_queue, tempo);
 	snd_seq_start_queue(seq, alsa_queue, NULL);
 	snd_seq_drain_output(seq);
 
