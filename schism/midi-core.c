@@ -123,6 +123,7 @@ int midi_flags = MIDI_TICK_QUANTIZE | MIDI_RECORD_NOTEOFF
 int midi_pitch_depth = 12;
 int midi_amplification = 100;
 int midi_c5note = 60;
+int midi_delay = 0;
 
 #define CFG_GET_MI(v,d) midi_ ## v = cfg_get_number(cfg, "MIDI", #v, d)
 
@@ -193,6 +194,7 @@ void cfg_load_midi(cfg_file_t *cfg)
 	CFG_GET_MI(pitch_depth, 12);
 	CFG_GET_MI(amplification, 100);
 	CFG_GET_MI(c5note, 60);
+	CFG_GET_MI(delay,0);
 
 	song_lock_audio();
 	md = &default_midi_config;
@@ -242,6 +244,7 @@ void cfg_save_midi(cfg_file_t *cfg)
 	CFG_SET_MI(pitch_depth);
 	CFG_SET_MI(amplification);
 	CFG_SET_MI(c5note);
+	CFG_SET_MI(delay);
 
 	song_lock_audio();
 	md = &default_midi_config;
@@ -788,7 +791,7 @@ void midi_send_buffer(const unsigned char *data, unsigned int len, unsigned int 
 	}
 
 	/* pos is still in miliseconds */
-	int delay = (1000 * (((buffer_size/2) - pos)) / sample_rate);
+	int delay = (1000 * (((buffer_size/2) - pos)) / sample_rate) + midi_delay;
 	if (midims != 0 && _midi_send_unlocked(data, len, delay, 2)) {
 		/* grr, we need a timer */
 		

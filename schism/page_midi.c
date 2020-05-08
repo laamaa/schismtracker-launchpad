@@ -34,7 +34,7 @@
 
 static int top_midi_port = 0;
 static int current_port = 0;
-static struct widget widgets_midi[17];
+static struct widget widgets_midi[18];
 static time_t last_midi_poll = 0;
 
 /* --------------------------------------------------------------------- */
@@ -77,6 +77,7 @@ static void update_midi_values(void)
 	midi_amplification = widgets_midi[7].d.thumbbar.value;
 	midi_c5note = widgets_midi[8].d.thumbbar.value;
 	midi_pitch_depth = widgets_midi[10].d.thumbbar.value;
+	midi_delay = widgets_midi[15].d.thumbbar.value;
 }
 
 static void get_midi_config(void)
@@ -94,6 +95,7 @@ static void get_midi_config(void)
 	widgets_midi[8].d.thumbbar.value = midi_c5note;
 	widgets_midi[10].d.thumbbar.value = midi_pitch_depth;
 	widgets_midi[12].d.thumbbar.value = ip_midi_getports();
+	widgets_midi[15].d.thumbbar.value = midi_delay;
 }
 
 static void toggle_port(void)
@@ -244,6 +246,7 @@ static void midi_page_redraw(void)
 	draw_text(  "Embed MIDI data", 37, 38, 0, 2);
 
 	draw_text(    "IP MIDI ports", 39, 41, 0, 2);
+	draw_text(  "MIDI delay (ms)", 37, 44, 0, 2);
 	draw_box(52,40,73,42, BOX_THIN|BOX_INNER|BOX_INSET);
 }
 
@@ -319,7 +322,7 @@ void midi_load_page(struct page *page)
 	page->playback_update = NULL;
 	page->handle_key = NULL;
 	page->set_page = get_midi_config;
-	page->total_widgets = 15;
+	page->total_widgets = 16;
 	page->widgets = widgets_midi;
 	page->help_index = HELP_GLOBAL;
 
@@ -340,10 +343,11 @@ void midi_load_page(struct page *page)
 	create_toggle(widgets_midi + 9, 53, 34, 8, 10, 5, 5, 5, update_midi_values);
 	create_thumbbar(widgets_midi + 10, 53, 35, 20, 9, 11, 6, update_midi_values, 0, 48);
 	create_toggle(widgets_midi + 11, 53, 38, 10, 12, 13, 13, 13, update_midi_values);
-	create_thumbbar(widgets_midi + 12, 53, 41, 20, 11, 12, 13, update_ip_ports, 0, 128);
+	create_thumbbar(widgets_midi + 12, 53, 41, 20, 11, 15, 15, update_ip_ports, 0, 128);
 	create_button(widgets_midi + 13, 2, 41, 27, 6, 14, 12, 12, 12,
 		midi_output_config, "MIDI Output Configuration", 2);
-	create_button(widgets_midi + 14, 2, 44, 27, 13, 14, 12, 12, 12,
+	create_button(widgets_midi + 14, 2, 44, 27, 13, 14, 12, 15, 15,
 		cfg_midipage_save, "Save Output Configuration", 2);
+	create_thumbbar(widgets_midi + 15, 53, 44, 20, 12, 13, 13, update_midi_values, -5, 50);
 }
 
