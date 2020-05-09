@@ -321,9 +321,10 @@ static void _midi_engine_connect(void)
 #if defined(USE_ALSA) && defined(USE_OSS)
 	if (!alsa_midi_setup())
 		oss_midi_setup();
-#endif
-#if !defined(USE_ALSA) && defined(USE_OSS)
+#elif !defined(USE_ALSA) && defined(USE_OSS)
 	oss_midi_setup();
+#elif defined(USE_ALSA) && !defined(USE_OSS)
+	alsa_midi_setup();
 #endif
 #ifdef WIN32
 	win32mm_midi_setup();
