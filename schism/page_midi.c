@@ -28,6 +28,8 @@
 #include "page.h"
 #include "midi.h"
 
+#include "launchpad.h"
+
 #include "song.h"
 
 /* --------------------------------------------------------------------- */
@@ -120,6 +122,19 @@ static void toggle_port(void)
 			else p->io = 0;
 			break;
 		case MIDI_INPUT|MIDI_OUTPUT:
+			//We check for a launchpad simply by comparing the device name
+			if (strstr(p->name,"Launchpad") != NULL) { 
+				p->io |= MIDI_LAUNCHPAD;
+				lp_set_port(p->num);
+				log_appendf(3,"LP found in port %d",lp_get_port());
+				lp_initialize();
+			} else
+				p->io = 0;
+			break;
+		case MIDI_INPUT|MIDI_OUTPUT|MIDI_LAUNCHPAD:
+			lp_resetall();
+			lp_set_port(-1);
+			log_appendf(3,"LP disabled");
 			p->io = 0;
 			break;
 		};
@@ -301,11 +316,12 @@ static void midi_page_draw_portlist(void)
 		}
 
 		switch (p->io) {
-			case 0:                         state = "Disabled "; break;
-			case MIDI_INPUT:                state = "   Input "; break;
-			case MIDI_OUTPUT:               state = "  Output "; break;
-			case MIDI_INPUT | MIDI_OUTPUT:  state = "  Duplex "; break;
-			default:                        state = " Enabled?"; break;
+			case 0:                         					state = "Disabled "; break;
+			case MIDI_INPUT:                					state = "   Input "; break;
+			case MIDI_OUTPUT:               					state = "  Output "; break;
+			case MIDI_INPUT | MIDI_OUTPUT:  					state = "  Duplex "; break;
+			case MIDI_INPUT | MIDI_OUTPUT | MIDI_LAUNCHPAD :	state = "Launchpad"; break;
+			default:                        					state = " Enabled?"; break;
 		}
 		draw_text(state, 3, 15 + i, fg, bg);
 	}

@@ -168,13 +168,13 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 		if ((q->iocap & MIDI_OUTPUT) && cfg_get_number(&cfg, c->name, "output", 0)) {
 			q->io |= MIDI_OUTPUT;
 		}
-		if (q->io && q->enable) q->enable(q);
-		if (strstr(q->name,"Launchpad") != NULL && q->io == MIDI_INPUT|MIDI_OUTPUT){
+		if ((q->iocap & (MIDI_INPUT|MIDI_OUTPUT)) && cfg_get_number(&cfg, c->name, "launchpad", 0)) {
 			q->io |= MIDI_LAUNCHPAD;
 			lp_set_port(q->num);
 			log_appendf(3,"LP found in port %d",lp_get_port());
 			lp_initialize();
 		}
+		if (q->io && q->enable) q->enable(q);
 	}
 
 	cfg_free(&cfg);
@@ -295,6 +295,7 @@ void cfg_save_midi(cfg_file_t *cfg)
 			}
 			cfg_set_number(cfg, buf, "input", q->io & MIDI_INPUT ? 1 : 0);
 			cfg_set_number(cfg, buf, "output", q->io & MIDI_OUTPUT ? 1 : 0);
+			cfg_set_number(cfg, buf, "launchpad", q->io & MIDI_LAUNCHPAD ? 1 : 0);
 		}
 	}
 	//TODO: Save number of MIDI-IP ports

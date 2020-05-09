@@ -62,7 +62,7 @@ struct midi_provider {
 
 #define MIDI_INPUT      1
 #define MIDI_OUTPUT     2
-#define MIDI_LAUNCHPAD	3
+#define MIDI_LAUNCHPAD	4
 
 struct midi_port {
 	int io, iocap;
