@@ -62,7 +62,7 @@ struct midi_provider {
 
 #define MIDI_INPUT      1
 #define MIDI_OUTPUT     2
-#define MIDI_LAUNCHPAD	3
+#define MIDI_LAUNCHPAD	4
 
 struct midi_port {
 	int io, iocap;
@@ -162,6 +162,6 @@ int macosx_midi_setup(void);    // MACOSX
 #define MIDI_PITCHBEND          0x00000040
 #define MIDI_DISABLE_RECORD     0x00010000
 
-extern int midi_flags, midi_pitch_depth, midi_amplification, midi_c5note;
+extern int midi_flags, midi_pitch_depth, midi_amplification, midi_c5note, midi_delay;
 
 #endif
