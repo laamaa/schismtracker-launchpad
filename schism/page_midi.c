@@ -263,6 +263,8 @@ static void midi_page_redraw(void)
 	draw_text(    "IP MIDI ports", 39, 41, 0, 2);
 	draw_text(  "MIDI delay (ms)", 37, 44, 0, 2);
 	draw_box(52,40,73,42, BOX_THIN|BOX_INNER|BOX_INSET);
+	draw_box(52,43,73,45, BOX_THIN|BOX_INNER|BOX_INSET);
+
 }
 
 static void midi_page_draw_portlist(void)
