@@ -1042,10 +1042,10 @@ static void _schism_midi_out_note(int chan, const song_note_t *starting_note)
 
 	if (!current_song || !song_is_instrument_mode() || (status.flags & MIDI_LIKE_TRACKER)) return;
 
-    /*if(m)
-    fprintf(stderr, "midi_out_note called (ch %d)note(%d)instr(%d)volcmd(%02X)cmd(%02X)vol(%02X)p(%02X)\n",
-	chan, m->note, m->instrument, m->voleffect, m->effect, m->volparam, m->param);
-    else fprintf(stderr, "midi_out_note called (ch %d) m=%p\n", m);*/
+#if 0
+fprintf(stderr, "midi_out_note called (ch %d)note(%d)instr(%d)volcmd(%02X)cmd(%02X)vol(%02X)p(%02X)\n",
+chan, m->note, m->instrument, m->voleffect, m->effect, m->volparam, m->param);
+#endif
 
 	if (!midi_playing) {
 		csf_process_midi_macro(current_song, 0, current_song->midi_config.start, 0, 0, 0, 0); // START!
@@ -1087,12 +1087,14 @@ static void _schism_midi_out_note(int chan, const song_note_t *starting_note)
 	}
 
 	m_note = m->note;
-	tc = current_song->tick_count % current_song->current_speed;
+	tc = current_song->current_speed - current_song->tick_count;
+
 #if 0
-printf("channel = %d note=%d starting_note=%p\n",chan,m_note,starting_note);
+fprintf(stderr,"channel = %d note=%d starting_note=%p\n",chan,m_note,starting_note);*/
 #endif
+
 	if (m->effect == FX_SPECIAL) {
-		switch (m->param & 0x80) {
+		switch (m->param & 0xF0) {
 		case 0xC0: /* note cut */
 			if (tc == (((unsigned)m->param) & 15)) {
 				m_note = NOTE_CUT;

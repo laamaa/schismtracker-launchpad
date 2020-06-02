@@ -10,6 +10,11 @@
 #include <stdio.h>
 #include <math.h>
 
+/* TODO:
+ * - Song changes, reset loops, mutes and lp_state
+ * - Put mutes/solos to their own grid view instead of top row
+ */
+
 enum lp_view {
 	about,
 	orders,
@@ -101,12 +106,14 @@ int lp_is_hex_code_grid_button(int val)
 void lp_check_loop_state()
 {
 	if (loop.start != -1 && loop.end != -1) {
+		//log_appendf(3,"loop start: %d, loop end: %d", loop.start, loop.end);
 		if (song_get_current_order() == loop.start) {
 			loop.active = 1;
 		} else {
 			/* If the loop is , check if we're approaching the end */
 			if (queued_order != loop.start && song_get_current_order() == loop.end) {
-				queued_order = loop.start;
+				//log_appendf(3,"Loop end, setting next order %d", loop.start);
+				state.queued_order = loop.start;
 				song_set_next_order(loop.start);
 			}
 		}
@@ -327,6 +334,7 @@ void lp_handle_midi(int *st)
 					/* Check if there is more than one button pressed and enable loop if so */
 					for (int i=0;i<64;i++) {
 						if (lp_grid_buttons_down[i] == 1) {
+							//log_appendf(3,"Two buttons down");
 							/* Check if there is already a loop defined and make the buttons stop blinking */
 							if (loop.start != -1 && loop.end != -1)
 								lp_draw_grid(loop.start,loop.end-loop.start+1,LP_LED_AMBER_LOW);

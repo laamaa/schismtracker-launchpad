@@ -123,6 +123,7 @@ int midi_flags = MIDI_TICK_QUANTIZE | MIDI_RECORD_NOTEOFF
 int midi_pitch_depth = 12;
 int midi_amplification = 100;
 int midi_c5note = 60;
+int midi_delay = 0;
 
 #define CFG_GET_MI(v,d) midi_ ## v = cfg_get_number(cfg, "MIDI", #v, d)
 
@@ -167,13 +168,13 @@ static void _cfg_load_midi_part_locked(struct midi_port *q)
 		if ((q->iocap & MIDI_OUTPUT) && cfg_get_number(&cfg, c->name, "output", 0)) {
 			q->io |= MIDI_OUTPUT;
 		}
-		if (q->io && q->enable) q->enable(q);
-		if (strstr(q->name,"Launchpad") != NULL && q->io == MIDI_INPUT|MIDI_OUTPUT){
+		if ((q->iocap & (MIDI_INPUT|MIDI_OUTPUT)) && cfg_get_number(&cfg, c->name, "launchpad", 0)) {
 			q->io |= MIDI_LAUNCHPAD;
 			lp_set_port(q->num);
 			log_appendf(3,"LP found in port %d",lp_get_port());
 			lp_initialize();
 		}
+		if (q->io && q->enable) q->enable(q);
 	}
 
 	cfg_free(&cfg);
@@ -193,6 +194,7 @@ void cfg_load_midi(cfg_file_t *cfg)
 	CFG_GET_MI(pitch_depth, 12);
 	CFG_GET_MI(amplification, 100);
 	CFG_GET_MI(c5note, 60);
+	CFG_GET_MI(delay,0);
 
 	song_lock_audio();
 	md = &default_midi_config;
@@ -242,6 +244,7 @@ void cfg_save_midi(cfg_file_t *cfg)
 	CFG_SET_MI(pitch_depth);
 	CFG_SET_MI(amplification);
 	CFG_SET_MI(c5note);
+	CFG_SET_MI(delay);
 
 	song_lock_audio();
 	md = &default_midi_config;
@@ -292,6 +295,7 @@ void cfg_save_midi(cfg_file_t *cfg)
 			}
 			cfg_set_number(cfg, buf, "input", q->io & MIDI_INPUT ? 1 : 0);
 			cfg_set_number(cfg, buf, "output", q->io & MIDI_OUTPUT ? 1 : 0);
+			cfg_set_number(cfg, buf, "launchpad", q->io & MIDI_LAUNCHPAD ? 1 : 0);
 		}
 	}
 	//TODO: Save number of MIDI-IP ports
@@ -313,10 +317,13 @@ static void _midi_engine_connect(void)
 #ifdef USE_NETWORK
 	ip_midi_setup();
 #endif
-#ifdef USE_OSS
+//Prefer ALSA MIDI over OSS, but do not enable both since ALSA's OSS emulation can cause conflicts with due to the way Schism handles OSS MIDI
+#if defined(USE_ALSA) && defined(USE_OSS)
+	if (!alsa_midi_setup())
+		oss_midi_setup();
+#elif !defined(USE_ALSA) && defined(USE_OSS)
 	oss_midi_setup();
-#endif
-#ifdef USE_ALSA
+#elif defined(USE_ALSA) && !defined(USE_OSS)
 	alsa_midi_setup();
 #endif
 #ifdef WIN32
@@ -788,7 +795,7 @@ void midi_send_buffer(const unsigned char *data, unsigned int len, unsigned int 
 	}
 
 	/* pos is still in miliseconds */
-	int delay = (1000 * (((buffer_size/2) - pos)) / sample_rate);
+	int delay = (1000 * (((buffer_size/2) - pos)) / sample_rate) + midi_delay;
 	if (midims != 0 && _midi_send_unlocked(data, len, delay, 2)) {
 		/* grr, we need a timer */
 		

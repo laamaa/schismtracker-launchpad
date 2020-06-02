@@ -800,6 +800,8 @@ void csf_midi_send(song_t *csf, const unsigned char *data, unsigned int len, uin
 
 		*/
 		csf_midi_out_raw(data, len, csf->buffer_count);
+		chan->flags |= CHN_MIDI;
+		chan->strike = 2;
 	}
 }
 
