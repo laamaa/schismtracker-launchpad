@@ -1467,6 +1467,9 @@ void song_init_modplug(void)
 {
 	song_lock_audio();
 
+	//initialize global transpose value
+	if (!global_transpose) global_transpose = 0;
+	
 	max_voices = audio_settings.channel_limit;
 	csf_set_resampling_mode(current_song, audio_settings.interpolation_mode);
 	if (audio_settings.no_ramping)

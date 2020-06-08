@@ -686,6 +686,8 @@ unsigned int transpose_to_frequency(int transp, int ftune);
 int frequency_to_transpose(unsigned int freq);
 unsigned long calc_halftone(unsigned long hz, int rel);
 
+//global transpose
+int global_transpose;
 
 // sndfile
 song_t *csf_allocate(void);
