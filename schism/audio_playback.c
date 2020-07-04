@@ -496,7 +496,9 @@ void song_start_once(void)
 	max_channels_used = 0;
 	current_song->repeat_count = -1; // FIXME do this right
 
-	//GM_SendSongStartCode();
+	if (midi_flags & MIDI_SEND_STARTSTOP)
+		GM_SendSongStartCode();	
+
 	song_unlock_audio();
 	main_song_mode_changed_cb();
 
@@ -510,7 +512,9 @@ void song_start(void)
 	song_reset_play_state();
 	max_channels_used = 0;
 
-	//GM_SendSongStartCode();
+	if (midi_flags & MIDI_SEND_STARTSTOP)
+		GM_SendSongStartCode();	
+
 	song_unlock_audio();
 	main_song_mode_changed_cb();
 
@@ -583,7 +587,9 @@ void song_stop_unlocked(int quitting)
 			csf_midi_send(current_song, (unsigned char *) moff, 3, 0, 0);
 		}
 
-		csf_process_midi_macro(current_song, 0, current_song->midi_config.stop, 0, 0, 0, 0); // STOP!
+		if (midi_flags & MIDI_SEND_STARTSTOP)
+			csf_process_midi_macro(current_song, 0, current_song->midi_config.stop, 0, 0, 0, 0); // STOP!
+			
 		midi_send_flush(); // NOW!
 
 		midi_playing = 0;
@@ -591,8 +597,7 @@ void song_stop_unlocked(int quitting)
 
 	OPL_Reset(); /* Also stop all OPL sounds */
 	GM_Reset(quitting);
-	GM_SendSongStopCode();
-
+		
 	memset(last_row,0,sizeof(last_row));
 	last_row_number = -1;
 
@@ -626,7 +631,8 @@ void song_loop_pattern(int pattern, int row)
 	max_channels_used = 0;
 	csf_loop_pattern(current_song, pattern, row);
 
-	//GM_SendSongStartCode();
+	if (midi_flags & MIDI_SEND_STARTSTOP)
+		GM_SendSongStartCode();	
 
 	song_unlock_audio();
 	main_song_mode_changed_cb();
@@ -644,7 +650,8 @@ void song_start_at_order(int order, int row)
 	current_song->break_row = row;
 	max_channels_used = 0;
 
-	//GM_SendSongStartCode();
+	if (midi_flags & MIDI_SEND_STARTSTOP)
+		GM_SendSongStartCode();	
 	/* TODO: GM_SendSongPositionCode(calculate the number of 1/16 notes) */
 	song_unlock_audio();
 	main_song_mode_changed_cb();
