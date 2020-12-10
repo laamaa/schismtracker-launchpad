@@ -1064,8 +1064,6 @@ int csf_process_tick(song_t *csf)
 		csf_process_effects(csf, 0);
 	}
 
-	GM_SendSongTickCode();
-	midi_send_flush();
 	return 1;
 }
 
