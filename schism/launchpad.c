@@ -20,7 +20,9 @@ enum lp_view
 	about,
 	orders,
 	channels,
-	files
+	files,
+	sampler,
+	phraser
 };
 
 typedef struct lp_loop
@@ -339,61 +341,97 @@ void lp_handle_midi_cc(int *st)
 	}
 }
 
+/* A grid button is pressed */
 void lp_handle_grid_button_noteon(int *st, int *loop_created, int *lp_grid_buttons_down)
 {
 	loop_created = 0;
-	/* A grid button is pressed */
-	if (status.current_page == PAGE_LOAD_MODULE)
+	int button = lp_grid_button_hex_to_int(st[2]);
+	switch (status.current_page)
 	{
+	case PAGE_LOAD_MODULE:
 		/* On load module page, change the selected file according to pressed grid button */
-		set_current_file(lp_grid_button_hex_to_int(st[2]));
-		lp_set_led(st[2], LP_LED_GREEN_LOW);
-	}
-	else
-	{
+		if (button < get_flist_num_files())
+		{
+			set_current_file(button);
+			lp_set_led(st[2], LP_LED_GREEN_LOW);
+		}
+		break;
+
+	default:
 		if (song_get_mode() == MODE_STOPPED)
 		{
 			/* If song is stopped, set the starting order */
-			song_set_current_order(lp_grid_button_hex_to_int(st[2]));
-			state.queued_order = lp_grid_button_hex_to_int(st[2]);
-			lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
+			if (button < csf_get_num_orders(current_song))
+			{
+				song_set_current_order(button);
+				state.queued_order = button;
+				lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
+			}
 		}
 		else
 		{
-			/* Check if there is more than one button pressed and enable loop if so */
+			/* Song is playing */
 			for (int i = 0; i < 64; i++)
 			{
-				if (lp_grid_buttons_down[i] == 1)
+				/* Check if there is more than one button pressed and enable loop if so */
+				if (button < csf_get_num_orders(current_song) && lp_grid_buttons_down[i] == 1)
 				{
-					//log_appendf(3,"Two buttons down");
 					/* Check if there is already a loop defined and make the buttons stop blinking */
 					if (loop.start != -1 && loop.end != -1)
 						lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_AMBER_LOW);
 					/* The two buttons might be pressed in either order, check that */
-					if (i > lp_grid_button_hex_to_int(st[2]))
+					if (i > button)
 					{
-						loop.start = lp_grid_button_hex_to_int(st[2]);
+						loop.start = button;
 						loop.end = i;
 					}
 					else
 					{
 						loop.start = i;
-						loop.end = lp_grid_button_hex_to_int(st[2]);
+						loop.end = button;
 					}
 					/* If we're already in the loop start pattern, mark it active */
-					if (song_get_current_order() == loop.start)
+					if (song_get_current_order() == loop.start) {
 						loop.active = 1;
+						song_set_next_order(loop.start+1);
+					} else {
+						song_set_next_order(loop.start);
+					}
+						
 					lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_YELLOW_FLASH);
 					lp_set_grid_led(state.active_order, LP_LED_GREEN_FULL);
-					song_set_next_order(loop.start);
+					
 					state.queued_order = loop.start;
 					loop_created = 1;
 					break;
 				}
 			}
-			lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 1; // Save pressed buttons in an array
+			lp_grid_buttons_down[button] = 1; // Save pressed buttons in an array
+		}
+		break;
+	}
+}
+
+void lp_handle_grid_button_noteoff(int *st, int *loop_created, int *lp_grid_buttons_down)
+{
+	int button = lp_grid_button_hex_to_int(st[2]);
+	if (button < csf_get_num_orders(current_song) && loop_created == 0)
+	{
+		/* There is no loop currently, queue the next order */
+		song_set_next_order(button);
+		if (state.queued_order != -1)
+			lp_set_grid_led(state.queued_order, LP_LED_AMBER_LOW);
+		state.queued_order = button;
+		lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
+		if (loop.start != -1)
+		{
+			lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_AMBER_LOW);
+			loop.active = 0;
+			loop.start = -1;
+			loop.end = -1;
 		}
 	}
+	lp_grid_buttons_down[button] = 0;
 }
 
 void lp_handle_scene_button_noteon(int *st)
@@ -441,6 +479,13 @@ void lp_handle_scene_button_noteon(int *st)
 		}
 		lp_update_grid();
 		break;
+	case LP_BTN_SCENE_C:
+		/* Phrase mode, play oneshot orders */
+		if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP)
+		{
+			// TO DO
+		}
+		break;
 	case LP_BTN_SCENE_A:
 		/* If mute is active, unmute all */
 		if (mute.active)
@@ -450,27 +495,6 @@ void lp_handle_scene_button_noteon(int *st)
 		}
 		break;
 	}
-}
-
-void lp_handle_grid_button_noteoff(int *st, int *loop_created, int *lp_grid_buttons_down)
-{
-	if (loop_created == 0)
-	{
-		int next_order = lp_grid_button_hex_to_int(st[2]);
-		song_set_next_order(next_order);
-		if (state.queued_order != -1)
-			lp_set_grid_led(state.queued_order, LP_LED_AMBER_LOW);
-		state.queued_order = next_order;
-		lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
-		if (loop.start != -1)
-		{
-			lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_AMBER_LOW);
-			loop.active = 0;
-			loop.start = -1;
-			loop.end = -1;
-		}
-	}
-	lp_grid_buttons_down[lp_grid_button_hex_to_int(st[2])] = 0;
 }
 
 /* This handles LP grid button presses */
