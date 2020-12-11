@@ -33,6 +33,9 @@ int lp_is_hex_code_grid_button(int val); // Is the parameter code a LP grid butt
 void lp_check_active_order();
 void lp_initialize();
 void lp_set_port(int port);
+void lp_handle_grid_button_noteon(int *st, int *loop_created, int *lp_grid_buttons_down);
+void lp_handle_grid_button_noteoff(int *st, int *loop_created, int *lp_grid_buttons_down);
+void lp_handle_scene_button_noteon(int *st);
 void lp_handle_midi(int *st);
 void lp_handle_midi_cc(int *st);
 void lp_update_grid();
