@@ -928,7 +928,7 @@ static int increment_order(song_t *csf)
 		} else {
 			csf->process_order = 1;
 		}
-	} else if (!(csf->flags & SONG_ORDERLOCKED) && csf->process_order != csf->current_order) {
+	} else if (!(csf->flags & SONG_ORDERLOCKED) || csf->process_order != csf->current_order) {
 		/* [Increase ProcessOrder] */
 		/* [while Order[ProcessOrder] = 0xFEh, increase ProcessOrder] */
 		do {
@@ -959,7 +959,7 @@ static int increment_order(song_t *csf)
 		/* [CurrentPattern = Order[ProcessOrder]] */
 		csf->current_order = csf->process_order;
 		csf->current_pattern = csf->orderlist[csf->process_order];
-	}
+	} 
 
 	if (!csf->pattern_size[csf->current_pattern] || !csf->patterns[csf->current_pattern]) {
 		/* okay, this is wrong. allocate the pattern _NOW_ */

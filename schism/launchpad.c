@@ -116,7 +116,8 @@ int lp_is_hex_code_grid_button(int val)
 
 void lp_check_loop_state()
 {
-	if (loop.start != -1 && loop.end != -1)
+	/* Check if there is a loop defined and order locking is not enabled */
+	if (loop.start != -1 && loop.end != -1 && !(current_song->flags & SONG_ORDERLOCKED))
 	{
 		//log_appendf(3,"loop start: %d, loop end: %d", loop.start, loop.end);
 		if (song_get_current_order() == loop.start)
@@ -164,7 +165,7 @@ void lp_update_vu_meters()
 	static double vu_timer_start = 0;
 	if (vu_timer_start = 0)
 		vu_timer_start = _get_time_ms();
-	if ((song_get_mode() == (MODE_PLAYING || MODE_PATTERN_LOOP || MODE_SINGLE_STEP)) && _get_time_ms() - vu_timer_start > 100)
+	if ((song_get_mode() == MODE_PLAYING || song_get_mode() == MODE_PATTERN_LOOP || song_get_mode() == MODE_SINGLE_STEP) && _get_time_ms() - vu_timer_start > 100)
 	{
 		vu_timer_start = 0;
 		for (int i = 0; i < 8; i++)
@@ -463,7 +464,7 @@ static void lp_handle_scene_button_noteon(int *st)
 			song_stop();
 			lp_set_led(LP_BTN_SCENE_H, LP_LED_RED_FULL);
 		}
-		else if (song_get_mode() == (MODE_STOPPED || MODE_SINGLE_STEP))
+		else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP)
 		{
 			if (state.queued_order > -1)
 			{
@@ -480,11 +481,22 @@ static void lp_handle_scene_button_noteon(int *st)
 		/* Playback mode: normal / loop single pattern */
 		if (current_song->flags & SONG_ORDERLOCKED)
 		{
+			/* Remove order locked flag */
 			current_song->flags &= ~SONG_ORDERLOCKED;
+
+			/* Restore loop stuff if there is one active */
+			if (loop.active == 1)
+				lp_check_loop_state();
 			lp_set_led(LP_BTN_SCENE_G, LP_LED_OFF);
 		}
 		else
 		{
+			/* Check if there's an active loop and disable going back to the begin */
+			if (loop.active == 1 && song_get_current_order() == loop.end)
+			{
+				state.queued_order = song_get_current_order();
+				song_set_next_order(state.queued_order);
+			}
 			current_song->flags |= SONG_ORDERLOCKED;
 			lp_set_led(LP_BTN_SCENE_G, LP_LED_AMBER_FLASH);
 		}
@@ -502,7 +514,7 @@ static void lp_handle_scene_button_noteon(int *st)
 		break;
 	case LP_BTN_SCENE_C:
 		/* Phrase mode, play oneshot orders */
-		if (song_get_mode() == (MODE_STOPPED || MODE_SINGLE_STEP))
+		if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP)
 		{
 			// TO DO
 		}
