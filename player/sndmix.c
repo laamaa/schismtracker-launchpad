@@ -928,7 +928,7 @@ static int increment_order(song_t *csf)
 		} else {
 			csf->process_order = 1;
 		}
-	} else if (!(csf->flags & SONG_ORDERLOCKED)) {
+	} else if (!(csf->flags & SONG_ORDERLOCKED) && csf->process_order != csf->current_order) {
 		/* [Increase ProcessOrder] */
 		/* [while Order[ProcessOrder] = 0xFEh, increase ProcessOrder] */
 		do {

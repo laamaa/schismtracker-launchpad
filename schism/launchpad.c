@@ -164,7 +164,7 @@ void lp_update_vu_meters()
 	static double vu_timer_start = 0;
 	if (vu_timer_start = 0)
 		vu_timer_start = _get_time_ms();
-	if ((song_get_mode() == MODE_PLAYING || song_get_mode() == MODE_SINGLE_STEP) && _get_time_ms() - vu_timer_start > 100)
+	if ((song_get_mode() == (MODE_PLAYING || MODE_PATTERN_LOOP || MODE_SINGLE_STEP)) && _get_time_ms() - vu_timer_start > 100)
 	{
 		vu_timer_start = 0;
 		for (int i = 0; i < 8; i++)
@@ -270,20 +270,24 @@ void lp_turn_on_all_leds()
 
 void lp_update_grid()
 {
-	int num_files;
 	switch (status.current_page)
 	{
 	case PAGE_ABOUT:
+		/* On startup, just turn on all leds */
 		state.active_view = about;
 		lp_turn_on_all_leds();
 		break;
 	case PAGE_LOAD_MODULE:
+	{
+		int num_files;
+		/* Draw file browsing grid */
 		state.active_view = files;
 		num_files = get_flist_num_files();
 		lp_draw_grid(0, num_files, LP_LED_RED_LOW);
 		lp_set_grid_led(get_current_file(), LP_LED_GREEN_FULL);
 		lp_set_led(LP_BTN_SCENE_F, LP_LED_RED_FULL);
 		break;
+	}
 	default:
 		/* Light up order leds for LP */
 		lp_draw_grid(0, csf_get_num_orders(current_song), LP_LED_AMBER_LOW);
@@ -294,10 +298,13 @@ void lp_update_grid()
 			state.queued_order = -1;
 		if (state.queued_order > -1 && loop.start == -1)
 			lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
+		/* Because the scene leds are also reset when switching between views, we need to explicitly set them on update */
 		if (mute.active)
 			lp_set_led(LP_BTN_SCENE_A, LP_LED_RED_FLASH);
+		if (current_song->flags & SONG_ORDERLOCKED)
+			lp_set_led(LP_BTN_SCENE_G, LP_LED_AMBER_FLASH);
 		if (song_get_mode() == MODE_STOPPED)
-			lp_set_led(LP_BTN_SCENE_H, LP_LED_RED_FULL); // Because we reset the controller when switching pages, we need to check this as well...
+			lp_set_led(LP_BTN_SCENE_H, LP_LED_RED_FULL);
 		else
 			lp_set_led(LP_BTN_SCENE_H, LP_LED_GREEN_FULL);
 		break;
@@ -342,7 +349,7 @@ void lp_handle_midi_cc(int *st)
 }
 
 /* A grid button is pressed */
-void lp_handle_grid_button_noteon(int *st, int *loop_created, int (*lp_grid_buttons_down)[64])
+static void lp_handle_grid_button_noteon(int *st, int *loop_created, int (*lp_grid_buttons_down)[64])
 {
 	*loop_created = 0;
 	int button = lp_grid_button_hex_to_int(st[2]);
@@ -415,7 +422,7 @@ void lp_handle_grid_button_noteon(int *st, int *loop_created, int (*lp_grid_butt
 	}
 }
 
-void lp_handle_grid_button_noteoff(int *st, int *loop_created, int (*lp_grid_buttons_down)[64])
+static void lp_handle_grid_button_noteoff(int *st, int *loop_created, int (*lp_grid_buttons_down)[64])
 {
 	int button = lp_grid_button_hex_to_int(st[2]);
 	if (button < csf_get_num_orders(current_song))
@@ -440,39 +447,47 @@ void lp_handle_grid_button_noteoff(int *st, int *loop_created, int (*lp_grid_but
 	*lp_grid_buttons_down[button] = 0;
 }
 
-void lp_handle_scene_button_noteon(int *st)
+static void lp_handle_scene_button_noteon(int *st)
 {
 	switch (st[2])
 	{
 	case LP_BTN_SCENE_H:
-		if (status.current_page == PAGE_ABOUT || status.current_page == PAGE_LOAD_MODULE)
+		if (status.current_page == PAGE_LOAD_MODULE)
 		{
 			_push_keyboard_enter_event();
+			return;
 		}
-		else
+		/* Playback & Looping control */
+		if (song_get_mode() == MODE_PLAYING)
 		{
-			/* Playback & Looping control */
-			if (song_get_mode() == MODE_PLAYING)
+			song_stop();
+			lp_set_led(LP_BTN_SCENE_H, LP_LED_RED_FULL);
+		}
+		else if (song_get_mode() == (MODE_STOPPED || MODE_SINGLE_STEP))
+		{
+			if (state.queued_order > -1)
 			{
-				song_stop();
-				lp_set_led(LP_BTN_SCENE_H, LP_LED_RED_FULL);
+				song_start_at_order(state.queued_order, 0);
 			}
-			else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP)
+			else
 			{
-				if (state.queued_order > -1)
-				{
-					song_start_at_order(state.queued_order, 0);
-				}
-				else
-				{
-					song_start_at_order(song_get_current_order(), 0);
-				}
-				lp_set_led(LP_BTN_SCENE_H, LP_LED_GREEN_FULL);
+				song_start_at_order(song_get_current_order(), 0);
 			}
+			lp_set_led(LP_BTN_SCENE_H, LP_LED_GREEN_FULL);
 		}
 		break;
 	case LP_BTN_SCENE_G:
-		/* TODO Song repeat mode: infinite / repeat pattern */
+		/* Playback mode: normal / loop single pattern */
+		if (current_song->flags & SONG_ORDERLOCKED)
+		{
+			current_song->flags &= ~SONG_ORDERLOCKED;
+			lp_set_led(LP_BTN_SCENE_G, LP_LED_OFF);
+		}
+		else
+		{
+			current_song->flags |= SONG_ORDERLOCKED;
+			lp_set_led(LP_BTN_SCENE_G, LP_LED_AMBER_FLASH);
+		}
 		break;
 	case LP_BTN_SCENE_F:
 		if (status.current_page == PAGE_LOAD_MODULE)
@@ -487,7 +502,7 @@ void lp_handle_scene_button_noteon(int *st)
 		break;
 	case LP_BTN_SCENE_C:
 		/* Phrase mode, play oneshot orders */
-		if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP)
+		if (song_get_mode() == (MODE_STOPPED || MODE_SINGLE_STEP))
 		{
 			// TO DO
 		}
@@ -511,6 +526,13 @@ void lp_handle_midi(int *st)
 
 	if (st[0] == MIDI_NOTEON)
 	{
+		if (status.current_page == PAGE_ABOUT)
+		{
+			/* Pressing any button exits the about screen */
+			_push_keyboard_enter_event();
+			return;
+		}
+
 		if (lp_is_hex_code_grid_button(st[2]) == 1)
 		{
 			/* A button in the 8x8 grid is pressed */
@@ -524,9 +546,10 @@ void lp_handle_midi(int *st)
 	}
 	else
 	{
-		/* Note off message, queue the order */
+		/* The received message is a note off message -> key lifted */
 		if (lp_is_hex_code_grid_button(st[2]) == 1 && status.current_page != PAGE_LOAD_MODULE)
 		{
+			/* Note off message, triggers order queuing etc. */
 			lp_handle_grid_button_noteoff(st, &loop_created, &lp_grid_buttons_down);
 		}
 	}
