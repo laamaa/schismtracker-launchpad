@@ -269,6 +269,7 @@ void song_pause(void);
 void song_stop(void);
 void song_stop_unlocked(int quitting);
 void song_loop_pattern(int pattern, int row);
+void song_play_pattern_once(int pattern, int row);
 void song_start_at_order(int order, int row);
 void song_start_at_pattern(int pattern, int row);
 void song_single_step(int pattern, int row);

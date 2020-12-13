@@ -529,6 +529,7 @@ void song_pause(void)
 		current_song->flags ^= SONG_ENDREACHED;
 	song_unlock_audio();
 	main_song_mode_changed_cb();
+	status.lp_flags |= LP_UPDATE_GRID;
 }
 
 void song_stop(void)
@@ -537,6 +538,7 @@ void song_stop(void)
 	song_stop_unlocked(0);
 	song_unlock_audio();
 	main_song_mode_changed_cb();
+	status.lp_flags |= LP_UPDATE_GRID;
 }
 
 /* for midi translation */
@@ -638,6 +640,30 @@ void song_loop_pattern(int pattern, int row)
 	main_song_mode_changed_cb();
 
 	csf_reset_playmarks(current_song);
+	status.lp_flags |= LP_UPDATE_GRID;
+}
+
+void song_play_pattern_once(int pattern, int row)
+{
+	song_lock_audio();
+
+	song_reset_play_state();
+
+	csf_play_pattern_once(current_song, pattern,row);
+	current_song->break_row = row;
+	current_song->mix_flags |= SNDMIX_NOBACKWARDJUMPS;
+	current_song->flags |= SONG_PATTERNPLAYBACK;
+	max_channels_used = 0;
+	current_song->repeat_count = -1; // FIXME do this right
+
+	
+
+	song_unlock_audio();
+	main_song_mode_changed_cb();
+
+	csf_reset_playmarks(current_song);
+	status.lp_flags |= LP_UPDATE_GRID;
+
 }
 
 void song_start_at_order(int order, int row)

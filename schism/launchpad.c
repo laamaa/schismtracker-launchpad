@@ -20,7 +20,12 @@ enum lp_view
 	about,
 	orders,
 	channels,
-	files,
+	files
+};
+
+enum lp_mode
+{
+	normal,
 	sampler,
 	phraser
 };
@@ -42,11 +47,12 @@ typedef struct lp_state
 {
 	int midiport;
 	enum lp_view active_view;
+	enum lp_mode active_mode;
 	int active_order;
 	int queued_order;
 } lp_state;
 
-lp_state state = {-1, about, 0, -1};
+lp_state state = {-1, about, normal, 0, -1};
 lp_loop loop = {-1, -1, 0};
 lp_mute mute = {0, {0}};
 int active_order = 0;
@@ -119,7 +125,6 @@ void lp_check_loop_state()
 	/* Check if there is a loop defined and order locking is not enabled */
 	if (loop.start != -1 && loop.end != -1 && !(current_song->flags & SONG_ORDERLOCKED))
 	{
-		//log_appendf(3,"loop start: %d, loop end: %d", loop.start, loop.end);
 		if (song_get_current_order() == loop.start)
 		{
 			loop.active = 1;
@@ -129,7 +134,6 @@ void lp_check_loop_state()
 			/* If the loop is , check if we're approaching the end */
 			if (queued_order != loop.start && song_get_current_order() == loop.end)
 			{
-				//log_appendf(3,"Loop end, setting next order %d", loop.start);
 				state.queued_order = loop.start;
 				song_set_next_order(loop.start);
 			}
@@ -269,6 +273,39 @@ void lp_turn_on_all_leds()
 	midi_send_flush();
 }
 
+static void lp_update_grid_mode_normal()
+{
+	/* Light up order leds for LP */
+	lp_draw_grid(0, csf_get_num_orders(current_song), LP_LED_AMBER_LOW);
+	if (loop.start != -1 && loop.end != -1)
+		lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_YELLOW_FLASH);
+	lp_set_grid_led(state.active_order, LP_LED_GREEN_FULL);
+	if (state.active_order == state.queued_order)
+		state.queued_order = -1;
+	if (state.queued_order > -1 && loop.start == -1)
+		lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
+	/* Because the scene leds are also reset when switching between views, we need to explicitly set them on update */
+	if (mute.active)
+		lp_set_led(LP_BTN_SCENE_A, LP_LED_RED_FLASH);
+	if (current_song->flags & SONG_ORDERLOCKED)
+		lp_set_led(LP_BTN_SCENE_G, LP_LED_AMBER_FLASH);
+	if (song_get_mode() == MODE_STOPPED)
+		lp_set_led(LP_BTN_SCENE_H, LP_LED_RED_FULL);
+	else
+		lp_set_led(LP_BTN_SCENE_H, LP_LED_GREEN_FULL);
+}
+
+static void lp_update_grid_mode_phraser()
+{
+	/* Light up pattern leds for LP */
+	lp_draw_grid(0, csf_get_num_patterns(current_song), LP_LED_AMBER_LOW);
+	if (song_get_mode() != MODE_STOPPED && song_get_mode() != MODE_SINGLE_STEP)
+	{
+		lp_set_grid_led(current_song->current_pattern, LP_LED_GREEN_FULL);
+	}
+	lp_set_led(LP_BTN_SCENE_C, LP_LED_RED_FULL);
+}
+
 void lp_update_grid()
 {
 	switch (status.current_page)
@@ -290,24 +327,15 @@ void lp_update_grid()
 		break;
 	}
 	default:
-		/* Light up order leds for LP */
-		lp_draw_grid(0, csf_get_num_orders(current_song), LP_LED_AMBER_LOW);
-		if (loop.start != -1 && loop.end != -1)
-			lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_YELLOW_FLASH);
-		lp_set_grid_led(state.active_order, LP_LED_GREEN_FULL);
-		if (state.active_order == state.queued_order)
-			state.queued_order = -1;
-		if (state.queued_order > -1 && loop.start == -1)
-			lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
-		/* Because the scene leds are also reset when switching between views, we need to explicitly set them on update */
-		if (mute.active)
-			lp_set_led(LP_BTN_SCENE_A, LP_LED_RED_FLASH);
-		if (current_song->flags & SONG_ORDERLOCKED)
-			lp_set_led(LP_BTN_SCENE_G, LP_LED_AMBER_FLASH);
-		if (song_get_mode() == MODE_STOPPED)
-			lp_set_led(LP_BTN_SCENE_H, LP_LED_RED_FULL);
-		else
-			lp_set_led(LP_BTN_SCENE_H, LP_LED_GREEN_FULL);
+		switch (state.active_mode)
+		{
+		case phraser:
+			lp_update_grid_mode_phraser();
+			break;
+		default:
+			lp_update_grid_mode_normal();
+			break;
+		}
 		break;
 	}
 }
@@ -349,6 +377,73 @@ void lp_handle_midi_cc(int *st)
 	}
 }
 
+static void lp_handle_mode_normal_noteon(int button, int *loop_created, int (*lp_grid_buttons_down)[64])
+{
+	if (song_get_mode() == MODE_STOPPED)
+	{
+		/* If song is stopped, set the starting order */
+		if (button < csf_get_num_orders(current_song))
+		{
+			song_set_current_order(button);
+			state.queued_order = button;
+			lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
+		}
+	}
+	else
+	{
+		/* Song is playing */
+		for (int i = 0; i < 64; i++)
+		{
+			/* Check if there is more than one button pressed and enable loop if so */
+			if (button < csf_get_num_orders(current_song) && *lp_grid_buttons_down[i] == 1)
+			{
+				/* Check if there is already a loop defined and make the buttons stop blinking */
+				if (loop.start != -1 && loop.end != -1)
+					lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_AMBER_LOW);
+				/* The two buttons might be pressed in either order, check that */
+				if (i > button)
+				{
+					loop.start = button;
+					loop.end = i;
+				}
+				else
+				{
+					loop.start = i;
+					loop.end = button;
+				}
+				/* If we're already in the loop start pattern, mark it active */
+				if (song_get_current_order() == loop.start)
+				{
+					loop.active = 1;
+					song_set_next_order(loop.start + 1);
+				}
+				else
+				{
+					song_set_next_order(loop.start);
+				}
+
+				lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_YELLOW_FLASH);
+				lp_set_grid_led(state.active_order, LP_LED_GREEN_FULL);
+
+				state.queued_order = loop.start;
+				*loop_created = 1;
+				break;
+			}
+		}
+		*lp_grid_buttons_down[button] = 1; // Save pressed buttons in an array
+	}
+}
+
+static void lp_handle_mode_phraser_noteon(int button)
+{
+	if (button < csf_get_num_patterns(current_song))
+	{
+		state.queued_order = button;
+		song_play_pattern_once(state.queued_order, 0);
+		lp_set_grid_led(state.queued_order, LP_LED_GREEN_FULL);
+	}
+}
+
 /* A grid button is pressed */
 static void lp_handle_grid_button_noteon(int *st, int *loop_created, int (*lp_grid_buttons_down)[64])
 {
@@ -366,58 +461,13 @@ static void lp_handle_grid_button_noteon(int *st, int *loop_created, int (*lp_gr
 		break;
 
 	default:
-		if (song_get_mode() == MODE_STOPPED)
+		if (state.active_mode == phraser)
 		{
-			/* If song is stopped, set the starting order */
-			if (button < csf_get_num_orders(current_song))
-			{
-				song_set_current_order(button);
-				state.queued_order = button;
-				lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
-			}
+			lp_handle_mode_phraser_noteon(button);
 		}
 		else
 		{
-			/* Song is playing */
-			for (int i = 0; i < 64; i++)
-			{
-				/* Check if there is more than one button pressed and enable loop if so */
-				if (button < csf_get_num_orders(current_song) && *lp_grid_buttons_down[i] == 1)
-				{
-					/* Check if there is already a loop defined and make the buttons stop blinking */
-					if (loop.start != -1 && loop.end != -1)
-						lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_AMBER_LOW);
-					/* The two buttons might be pressed in either order, check that */
-					if (i > button)
-					{
-						loop.start = button;
-						loop.end = i;
-					}
-					else
-					{
-						loop.start = i;
-						loop.end = button;
-					}
-					/* If we're already in the loop start pattern, mark it active */
-					if (song_get_current_order() == loop.start)
-					{
-						loop.active = 1;
-						song_set_next_order(loop.start + 1);
-					}
-					else
-					{
-						song_set_next_order(loop.start);
-					}
-
-					lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_YELLOW_FLASH);
-					lp_set_grid_led(state.active_order, LP_LED_GREEN_FULL);
-
-					state.queued_order = loop.start;
-					*loop_created = 1;
-					break;
-				}
-			}
-			*lp_grid_buttons_down[button] = 1; // Save pressed buttons in an array
+			lp_handle_mode_normal_noteon(button, loop_created, lp_grid_buttons_down);
 		}
 		break;
 	}
@@ -426,26 +476,34 @@ static void lp_handle_grid_button_noteon(int *st, int *loop_created, int (*lp_gr
 static void lp_handle_grid_button_noteoff(int *st, int *loop_created, int (*lp_grid_buttons_down)[64])
 {
 	int button = lp_grid_button_hex_to_int(st[2]);
-	if (button < csf_get_num_orders(current_song))
+	switch (state.active_mode)
 	{
-		if (*loop_created == 0)
+	case phraser:
+		/* In phraser mode note off shouldn't do anything */
+		break;
+	default:
+		if (button < csf_get_num_orders(current_song))
 		{
-			/* There is no loop currently, queue the next order */
-			song_set_next_order(button);
-			if (state.queued_order != -1)
-				lp_set_grid_led(state.queued_order, LP_LED_AMBER_LOW);
-			state.queued_order = button;
-			lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
-			if (loop.start != -1)
+			if (*loop_created == 0)
 			{
-				lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_AMBER_LOW);
-				loop.active = 0;
-				loop.start = -1;
-				loop.end = -1;
+				/* There is no loop currently, queue the next order */
+				song_set_next_order(button);
+				if (state.queued_order != -1)
+					lp_set_grid_led(state.queued_order, LP_LED_AMBER_LOW);
+				state.queued_order = button;
+				lp_set_grid_led(state.queued_order, LP_LED_GREEN_FLASH);
+				if (loop.start != -1)
+				{
+					lp_draw_grid(loop.start, loop.end - loop.start + 1, LP_LED_AMBER_LOW);
+					loop.active = 0;
+					loop.start = -1;
+					loop.end = -1;
+				}
 			}
 		}
+		*lp_grid_buttons_down[button] = 0;
+		break;
 	}
-	*lp_grid_buttons_down[button] = 0;
 }
 
 static void lp_handle_scene_button_noteon(int *st)
@@ -485,8 +543,7 @@ static void lp_handle_scene_button_noteon(int *st)
 			current_song->flags &= ~SONG_ORDERLOCKED;
 
 			/* Restore loop stuff if there is one active */
-			if (loop.active == 1)
-				lp_check_loop_state();
+			lp_check_loop_state();
 			lp_set_led(LP_BTN_SCENE_G, LP_LED_OFF);
 		}
 		else
@@ -514,9 +571,20 @@ static void lp_handle_scene_button_noteon(int *st)
 		break;
 	case LP_BTN_SCENE_C:
 		/* Phrase mode, play oneshot orders */
-		if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP)
+		if (state.active_mode == phraser)
 		{
-			// TO DO
+			state.active_mode = normal;
+			state.queued_order = -1;
+			lp_resetall();
+			lp_update_grid();
+		}
+		else if (song_get_mode() == MODE_STOPPED || song_get_mode() == MODE_SINGLE_STEP)
+		{
+			state.active_mode = phraser;
+			state.queued_order = -1;
+			lp_resetall();
+			lp_set_led(LP_BTN_SCENE_C, LP_LED_RED_FULL);
+			lp_update_grid();
 		}
 		break;
 	case LP_BTN_SCENE_A:

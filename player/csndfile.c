@@ -533,6 +533,25 @@ void csf_loop_pattern(song_t *csf, int pat, int row)
 	}
 }
 
+void csf_play_pattern_once(song_t *csf, int pat, int row)
+{
+	if (pat < 0 || pat >= MAX_PATTERNS || !csf->patterns[pat]) {
+		csf->flags &= ~SONG_PATTERNPLAYBACK;
+	} else {
+		if (row < 0 || row >= csf->pattern_size[pat])
+			row = 0;
+
+		csf->process_order = 0; // hack - see increment_order in sndmix.c
+		csf->process_row = PROCESS_NEXT_ORDER;
+		csf->break_row = row;
+		csf->tick_count = 1;
+		csf->row_count = 0;
+		csf->current_pattern = pat;
+		csf->buffer_count = 0;
+		csf->flags |= SONG_PATTERNPLAYBACK;
+	}
+}
+
 /* --------------------------------------------------------------------------------------------------------- */
 
 #define SF_FAIL(name, n) \
