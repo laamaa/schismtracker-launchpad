@@ -94,6 +94,7 @@ enum {
 	WARN_VOLEFFECTS,
 	WARN_MAXSAMPLES,
 	WARN_LONGSAMPLES,
+	WARN_UNUSEDPATS,
 
 	MAX_WARN
 };
@@ -106,10 +107,11 @@ static const char *mod_warnings[] = {
 	[WARN_INSTRUMENTS]  = "Instrument functions",
 	[WARN_PATTERNLEN]   = "Pattern lengths other than 64 rows",
 	[WARN_MAXCHANNELS]  = "Data outside 4 channels",
-	[WARN_NOTERANGE]    = "Notes outside the range C-3 to B-5",
+	[WARN_NOTERANGE]    = "Notes outside the range C-4 to B-6",
 	[WARN_VOLEFFECTS]   = "Extended volume column effects",
 	[WARN_MAXSAMPLES]   = "Over 31 samples",
 	[WARN_LONGSAMPLES]  = "Odd sample length or greater than 131070",
+	[WARN_UNUSEDPATS]   = "Patterns outside order list",
 
 	[MAX_WARN]          = NULL
 };
@@ -543,6 +545,8 @@ int fmt_mod_save_song(disko_t *fp, song_t *song)
 		mod_orders[i] = song->orderlist[i];
 		if(maxpat < mod_orders[i]) maxpat = mod_orders[i];
 	}
+	if (maxpat + 1 < csf_get_num_patterns(song))
+		warn |= 1 << WARN_UNUSEDPATS;
 	for(; i < 128; ++i)
 		mod_orders[i] = 0;
 
