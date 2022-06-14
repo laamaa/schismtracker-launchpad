@@ -311,6 +311,9 @@ void song_set_current_speed(int speed);
 void song_set_current_tempo(int t);
 void song_set_current_global_volume(int volume);
 
+void song_set_global_transpose(int transpose);
+int song_get_global_transpose(void);
+
 /* this is very different from song_get_channel!
  * this deals with the channel that's *playing* and is used mostly
  * (entirely?) for the info page. */

@@ -985,7 +985,7 @@ int csf_process_tick(song_t *csf)
 				csf_midi_out_note(nchan, m);
 
 			chan->row_note = m->note;
-			if (chan->row_note > 0) chan->row_note = chan->row_note+global_transpose;
+			if (chan->row_note > 0) chan->row_note = chan->row_note+csf->global_transpose;
 
 			if (m->instrument)
 				chan->last_instrument = m->instrument;

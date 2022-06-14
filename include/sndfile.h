@@ -559,6 +559,7 @@ typedef struct song {
 	uint16_t pattern_alloc_size[MAX_PATTERNS];      // Allocated lengths (for async. resizing/playback)
 	uint8_t orderlist[MAX_ORDERS + 1];              // Pattern Orders
 	midi_config_t midi_config;                      // Midi macro config table
+	int32_t global_transpose;
 	uint32_t initial_speed;
 	uint32_t initial_tempo;
 	uint32_t initial_global_volume;
@@ -686,9 +687,6 @@ int get_frequency_from_note(int note, unsigned int c5speed);
 unsigned int transpose_to_frequency(int transp, int ftune);
 int frequency_to_transpose(unsigned int freq);
 unsigned long calc_halftone(unsigned long hz, int rel);
-
-//global transpose
-int global_transpose;
 
 // sndfile
 song_t *csf_allocate(void);
