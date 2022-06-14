@@ -95,15 +95,12 @@ int load_its_sample(const uint8_t *header, const uint8_t *data, size_t length, s
 
 	// endianness (always little)
 	format = SF_LE;
+	// channels
+	format |= (its->flags & 4) ? SF_SS : SF_M;
 	if (its->flags & 8) {
-		// no such thing as compressed stereo
-		// (TODO perhaps test with various players to see how this is implemented)
-		format |= SF_M;
 		// compression algorithm
 		format |= (its->cvt & 4) ? SF_IT215 : SF_IT214;
 	} else {
-		// channels
-		format |= (its->flags & 4) ? SF_SS : SF_M;
 		// signedness (or delta?)
 		format |= (its->cvt & 4) ? SF_PCMD : (its->cvt & 1) ? SF_PCMS : SF_PCMU;
 	}
@@ -224,7 +221,8 @@ int fmt_its_save_sample(disko_t *fp, song_sample_t *smp)
 	save_its_header(fp, smp);
 	csf_write_sample(fp, smp, SF_LE | SF_PCMS
 			| ((smp->flags & CHN_16BIT) ? SF_16 : SF_8)
-			| ((smp->flags & CHN_STEREO) ? SF_SS : SF_M));
+			| ((smp->flags & CHN_STEREO) ? SF_SS : SF_M),
+			UINT32_MAX);
 
 	/* Write the sample pointer. In an ITS file, the sample data is right after the header,
 	so its position in the file will be the same as the size of the header. */

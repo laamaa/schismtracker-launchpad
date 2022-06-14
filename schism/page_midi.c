@@ -70,6 +70,7 @@ static void update_midi_values(void)
 	|       (widgets_midi[5].d.toggle.state ? MIDI_RECORD_AFTERTOUCH : 0)
 	|       (widgets_midi[6].d.toggle.state ? MIDI_CUT_NOTE_OFF : 0)
 	|       (widgets_midi[9].d.toggle.state ? MIDI_PITCHBEND : 0)
+	|		(widgets_midi[16].d.toggle.state ? MIDI_SEND_STARTSTOP : 0)
 	;
 	if (widgets_midi[11].d.toggle.state)
 		current_song->flags |= SONG_EMBEDMIDICFG;
@@ -92,6 +93,7 @@ static void get_midi_config(void)
 	widgets_midi[6].d.toggle.state = !!(midi_flags & MIDI_CUT_NOTE_OFF);
 	widgets_midi[9].d.toggle.state = !!(midi_flags & MIDI_PITCHBEND);
 	widgets_midi[11].d.toggle.state = !!(current_song->flags & SONG_EMBEDMIDICFG);
+	widgets_midi[16].d.toggle.state = !!(midi_flags & MIDI_SEND_STARTSTOP);
 
 	widgets_midi[7].d.thumbbar.value = midi_amplification;
 	widgets_midi[8].d.thumbbar.value = midi_c5note;
@@ -242,9 +244,10 @@ static void midi_page_redraw(void)
 	draw_text(     "Record Velocity", 4, 33, 0, 2);
 	draw_text(   "Record Aftertouch", 2, 34, 0, 2);
 	draw_text(        "Cut note off", 7, 35, 0, 2);
+	draw_text(     "Send MIDI Start", 4, 36, 0, 2);
 
-	draw_fill_chars(23, 30, 24, 35, 0);
-	draw_box(19,29,25,36, BOX_THIN|BOX_INNER|BOX_INSET);
+	draw_fill_chars(23, 30, 24, 36, 0);
+	draw_box(19,29,25,37, BOX_THIN|BOX_INNER|BOX_INSET);
 
 	draw_box(52,29,73,32, BOX_THIN|BOX_INNER|BOX_INSET);
 
@@ -340,7 +343,7 @@ void midi_load_page(struct page *page)
 	page->playback_update = NULL;
 	page->handle_key = NULL;
 	page->set_page = get_midi_config;
-	page->total_widgets = 16;
+	page->total_widgets = 17;
 	page->widgets = widgets_midi;
 	page->help_index = HELP_GLOBAL;
 
@@ -355,14 +358,15 @@ void midi_load_page(struct page *page)
 	create_toggle(widgets_midi + 3, 20, 32, 2, 4, 8, 8, 8, update_midi_values);
 	create_toggle(widgets_midi + 4, 20, 33, 3, 5, 9, 9, 9, update_midi_values);
 	create_toggle(widgets_midi + 5, 20, 34, 4, 6, 9, 9, 9, update_midi_values);
-	create_toggle(widgets_midi + 6, 20, 35, 5, 13, 10, 10, 10, update_midi_values);
+	create_toggle(widgets_midi + 6, 20, 35, 5, 16, 10, 10, 10, update_midi_values);
+	create_toggle(widgets_midi + 16, 20, 36, 6, 13, 11, 11, 11, update_midi_values);
 	create_thumbbar(widgets_midi + 7, 53, 30, 20, 0, 8, 1, update_midi_values, 0, 200);
 	create_thumbbar(widgets_midi + 8, 53, 31, 20, 7, 9, 2, update_midi_values, 0, 127);
 	create_toggle(widgets_midi + 9, 53, 34, 8, 10, 5, 5, 5, update_midi_values);
-	create_thumbbar(widgets_midi + 10, 53, 35, 20, 9, 11, 6, update_midi_values, 0, 48);
+	create_thumbbar(widgets_midi + 10, 53, 35, 20, 9, 11, 16, update_midi_values, 0, 48);
 	create_toggle(widgets_midi + 11, 53, 38, 10, 12, 13, 13, 13, update_midi_values);
 	create_thumbbar(widgets_midi + 12, 53, 41, 20, 11, 15, 15, update_ip_ports, 0, 128);
-	create_button(widgets_midi + 13, 2, 41, 27, 6, 14, 12, 12, 12,
+	create_button(widgets_midi + 13, 2, 41, 27, 16, 14, 12, 12, 12,
 		midi_output_config, "MIDI Output Configuration", 2);
 	create_button(widgets_midi + 14, 2, 44, 27, 13, 14, 12, 15, 15,
 		cfg_midipage_save, "Save Output Configuration", 2);

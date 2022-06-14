@@ -473,7 +473,7 @@ void csf_set_current_order(song_t *csf, uint32_t position)
 	for (uint32_t j = 0; j < MAX_VOICES; j++) {
 		song_voice_t *v = csf->voices + j;
 
-		v->period = 0;
+		v->frequency = 0;
 		v->note = v->new_note = v->new_instrument = 0;
 		v->portamento_target = 0;
 		v->n_command = 0;
@@ -538,9 +538,11 @@ void csf_loop_pattern(song_t *csf, int pat, int row)
 #define SF_FAIL(name, n) \
 	({ log_appendf(4, "%s: internal error: unsupported %s %d", __FUNCTION__, name, n); return 0; })
 
-uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags)
+uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags, uint32_t maxlengthmask)
 {
 	uint32_t pos, len = sample->length;
+	if(maxlengthmask != UINT32_MAX)
+		len = len > maxlengthmask ? maxlengthmask : (len & maxlengthmask);
 	int stride = 1;     // how much to add to the left/right pointer per sample written
 	int byteswap = 0;   // should the sample data be byte-swapped?
 	int add = 0;        // how much to add to the sample data (for converting to unsigned)
@@ -1207,7 +1209,7 @@ void csf_stop_sample(song_t *csf, song_sample_t *smp)
 			v->note = v->new_note = v->new_instrument = 0;
 			v->fadeout_volume = 0;
 			v->flags |= CHN_KEYOFF | CHN_NOTEFADE;
-			v->period = 0;
+			v->frequency = 0;
 			v->position = v->length = 0;
 			v->loop_start = 0;
 			v->loop_end = 0;
@@ -1246,6 +1248,30 @@ void csf_import_mod_effect(song_note_t *m, int from_xm)
 {
 	uint32_t effect = m->effect, param = m->param;
 
+	// strip no-op effect commands that have memory in IT but not MOD/XM.
+	// arpeggio is safe since it's handled in the next switch.
+	if (!param || (effect == 0x0E && !(param & 0xF))) {
+		switch(effect) {
+		case 0x01:
+		case 0x02:
+		case 0x0A:
+			if (!from_xm) effect = 0;
+			break;
+		case 0x0E:
+			switch(param & 0xF0) {
+			case 0x10:
+			case 0x20:
+			case 0xA0:
+			case 0xB0:
+				if (from_xm) break;
+			case 0x90:
+				effect = param = 0;
+				break;
+			}
+			break;
+		}
+	}
+
 	switch(effect) {
 	case 0x00:      if (param) effect = FX_ARPEGGIO; break;
 	case 0x01:      effect = FX_PORTAMENTOUP; break;
@@ -1283,19 +1309,19 @@ void csf_import_mod_effect(song_note_t *m, int from_xm)
 			case 0x70: param = (param & 0x0F) | 0x40; break;
 			case 0x90: effect = FX_RETRIG; param &= 0x0F; break;
 			case 0xA0:
+				effect = FX_VOLUMESLIDE;
 				if (param & 0x0F) {
-					effect = FX_VOLUMESLIDE;
 					param = (param << 4) | 0x0F;
 				} else {
-					effect = param = 0;
+					param = 0;
 				}
 				break;
 			case 0xB0:
+				effect = FX_VOLUMESLIDE;
 				if (param & 0x0F) {
-					effect = FX_VOLUMESLIDE;
-					param |= 0xF0;
+					param = 0xF0 | MIN(param & 0x0F, 0x0E);
 				} else {
-					effect=param=0;
+					param = 0;
 				}
 				break;
 		}

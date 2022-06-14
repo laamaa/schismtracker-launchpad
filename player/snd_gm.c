@@ -342,7 +342,7 @@ static int GM_AllocateMelodyChannel(int c, int patch, int bank, int key, int pre
 		}
 	}
 
-	int best_mc = c,
+	int best_mc = c % 16,
 	    best_score = -999;
 
 	for (int mc = 0; mc < 16; ++mc) {
@@ -449,6 +449,8 @@ void GM_KeyOn(int c, unsigned char key, unsigned char vol)
 			percu = s3m_chans[c].patch - 128;
 
 		int mc = s3m_chans[c].chan = 9;
+		// Percussion can have different banks too
+		msi_set_patch_and_bank(&midi_chans[mc], mc, s3m_chans[c].patch, s3m_chans[c].bank);
 		msi_set_pan(&midi_chans[mc], mc, s3m_chans[c].pan);
 		msi_set_volume(&midi_chans[mc], mc, GM_volume(vol));
 		s3m_chans[c].note = key;

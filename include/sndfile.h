@@ -431,7 +431,7 @@ typedef struct song_voice {
 	int32_t final_panning; // range 0-256 (but can temporarily exceed that range during calculations)
 	int32_t volume, panning; // range 0-256 (?); these are the current values set for the channel
 	int32_t fadeout_volume;
-	int32_t period;
+	int32_t frequency;
 	int32_t c5speed;
 	int32_t sample_freq; // only used on the info page (F5)
 	int32_t portamento_target;
@@ -451,6 +451,7 @@ typedef struct song_voice {
 	uint32_t autovib_position, vibrato_position, tremolo_position, panbrello_position;
 	// 16-bit members
 	int vol_swing, pan_swing;
+	uint16_t channel_panning;
 
 	// formally 8-bit members
 	unsigned int note; // the note that's playing
@@ -618,7 +619,7 @@ void csf_init_instrument(song_instrument_t *ins, int samp);
 void csf_free_instrument(song_instrument_t *p);
 
 uint32_t csf_read_sample(song_sample_t *sample, uint32_t flags, const void *filedata, uint32_t datalength);
-uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags);
+uint32_t csf_write_sample(disko_t *fp, song_sample_t *sample, uint32_t flags, uint32_t maxlengthmask);
 void csf_adjust_sample_loop(song_sample_t *sample);
 
 extern void (*csf_midi_out_note)(int chan, const song_note_t *m);
@@ -670,6 +671,7 @@ void csf_note_change(song_t *csf, uint32_t chan, int note, int porta, int retrig
 uint32_t csf_get_nna_channel(song_t *csf, uint32_t chan);
 void csf_check_nna(song_t *csf, uint32_t chan, uint32_t instr, int note, int force_cut);
 void csf_process_effects(song_t *csf, int firsttick);
+int32_t csf_fx_do_freq_slide(uint32_t flags, int32_t frequency, int32_t slide, int is_tone_portamento);
 
 void fx_note_cut(song_t *csf, uint32_t chan, int clear_note);
 void fx_key_off(song_t *csf, uint32_t chan);
@@ -679,9 +681,8 @@ void csf_process_midi_macro(song_t *csf, uint32_t chan, const char *midi_macro, 
 song_sample_t *csf_translate_keyboard(song_t *csf, song_instrument_t *ins, uint32_t note, song_sample_t *def);
 
 // various utility functions in snd_fx.c
-int get_note_from_period(int period);
-int get_period_from_note(int note, unsigned int c5speed, int linear);
-unsigned int get_freq_from_period(int period, int linear);
+int get_note_from_frequency(int frequency, unsigned int c5speed);
+int get_frequency_from_note(int note, unsigned int c5speed);
 unsigned int transpose_to_frequency(int transp, int ftune);
 int frequency_to_transpose(unsigned int freq);
 unsigned long calc_halftone(unsigned long hz, int rel);

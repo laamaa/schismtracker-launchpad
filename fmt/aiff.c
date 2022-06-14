@@ -394,7 +394,7 @@ int fmt_aiff_save_sample(disko_t *fp, song_sample_t *smp)
 	bps = aiff_header(fp, (smp->flags & CHN_16BIT) ? 16 : 8, (smp->flags & CHN_STEREO) ? 2 : 1,
 		smp->c5speed, smp->name, smp->length, NULL);
 
-	if (csf_write_sample(fp, smp, flags) != smp->length * bps) {
+	if (csf_write_sample(fp, smp, flags, UINT32_MAX) != smp->length * bps) {
 		log_appendf(4, "AIFF: unexpected data size written");
 		return SAVE_INTERNAL_ERROR;
 	}
@@ -459,6 +459,9 @@ int fmt_aiff_export_body(disko_t *fp, const uint8_t *data, size_t length)
 
 int fmt_aiff_export_silence(disko_t *fp, long bytes)
 {
+	struct aiff_writedata *awd = fp->userdata;
+	awd->numbytes += bytes;
+
 	disko_seek(fp, bytes, SEEK_CUR);
 	return DW_OK;
 }

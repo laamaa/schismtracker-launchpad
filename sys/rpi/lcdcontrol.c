@@ -60,18 +60,16 @@ int lcd_update(void *ptr)
 					ph.current_row = song_get_current_row();
 					PiOLED_ClearDisplay();
 					PiOLED_FillTriangle(0,0,16,8,0,16,WHITE);
-					PiOLED_SetCursor(0,20);
-					PiOLED_SetTextSize(1);
-					PiOLED_Printf("%02d/",ph.current_order);
-					PiOLED_SetCursor(16,20);
-					PiOLED_Printf("%02d",csf_get_num_orders(current_song));
-					PiOLED_SetCursor(56,20);
-					PiOLED_Printf("%03d/",ph.current_row);
-					PiOLED_SetCursor(80,20);
-					PiOLED_Print("xxx");
+					PiOLED_SetCursor(40,20);
+					PiOLED_SetTextSize(2);
+					PiOLED_Printf("%03d/%03d",ph.current_order,csf_get_num_orders(current_song));
+					PiOLED_SetCursor(40,0);
+					PiOLED_Printf("%03d/%03d",ph.current_row,song_get_pattern(get_current_pattern(),NULL));
 					PiOLED_Display();
 				} else {
+					PiOLED_ClearDisplay();
 					PiOLED_FillRect(0,0,16,16,WHITE);
+					PiOLED_Display();
 				}
 				break;
 		}

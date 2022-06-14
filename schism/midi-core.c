@@ -317,7 +317,8 @@ static void _midi_engine_connect(void)
 #ifdef USE_NETWORK
 	ip_midi_setup();
 #endif
-//Prefer ALSA MIDI over OSS, but do not enable both since ALSA's OSS emulation can cause conflicts with due to the way Schism handles OSS MIDI
+
+//Prefer ALSA MIDI over OSS, but do not enable both since ALSA's OSS emulation can cause conflicts
 #if defined(USE_ALSA) && defined(USE_OSS)
 	if (!alsa_midi_setup())
 		oss_midi_setup();

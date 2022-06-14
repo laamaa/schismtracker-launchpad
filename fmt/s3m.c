@@ -82,6 +82,8 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 	uint16_t special;
 	uint16_t reserved;
 	uint32_t adlib = 0; // bitset
+	uint16_t gus_addresses = 0;
+	char any_samples = 0;
 	int uc;
 	const char *tid = NULL;
 
@@ -209,7 +211,7 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 	if (misc & S3M_CHANPAN) {
 		for (n = 0; n < 32; n++) {
 			c = slurp_getc(fp);
-			if (c & 0x20)
+			if ((c & 0x20) && (!(adlib & (1 << n)) || trkvers > 0x1320))
 				song->channels[n].panning = ((c & 0xf) << 2) + 2;
 		}
 	}
@@ -248,6 +250,8 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 				| ((misc & S3M_UNSIGNED) ? SF_PCMU : SF_PCMS)
 				| ((c & 4) ? SF_16 : SF_8)
 				| ((c & 2) ? SF_SS : SF_M));
+			if (sample->length)
+				any_samples = 1;
 			break;
 
 		default:
@@ -277,7 +281,11 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 				sample->c5speed = 8363;
 			}
 		}
-		slurp_seek(fp, 12, SEEK_CUR);        /* wasted space */
+		slurp_seek(fp, 4, SEEK_CUR);        /* unused space */
+		int16_t gus_address;
+		slurp_read(fp, &gus_address, 2);
+		gus_addresses |= bswapLE16(gus_address);
+		slurp_seek(fp, 6, SEEK_CUR);
 		slurp_read(fp, sample->name, 25);
 		sample->name[25] = 0;
 		sample->vib_type = 0;
@@ -296,6 +304,10 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 			csf_read_sample(sample, smp_flags[n], fp->data + fp->pos, fp->length - fp->pos);
 		}
 	}
+
+	// Mixing volume is not used with the GUS driver; relevant for PCM + OPL tracks
+	if (gus_addresses > 1)
+		song->mixing_volume = 48;
 
 	if (!(lflags & LOAD_NOPATTERNS)) {
 		for (n = 0; n < npat; n++) {
@@ -352,6 +364,10 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 					if (note->volparam == 255) {
 						note->voleffect = VOLFX_NONE;
 						note->volparam = 0;
+					} else if (note->volparam >= 128 && note->volparam <= 192) {
+						// ModPlug (or was there any earlier tracker using this command?)
+						note->voleffect = VOLFX_PANNING;
+						note->volparam -= 128;
 					} else if (note->volparam > 64) {
 						// some weirdly saved s3m?
 						note->volparam = 64;
@@ -383,7 +399,7 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 
 	/* MPT identifies as ST3.20 in the trkvers field, but it puts zeroes for the 'special' field, only ever
 	 * sets flags 0x10 and 0x40, writes multiples of 16 orders, always saves channel pannings, and writes
-	 * zero into the ultraclick removal field. (ST3 always puts either 8, 12, or 16 there).
+	 * zero into the ultraclick removal field. (ST3.2x always puts either 16, 24, or 32 there, older versions put 0).
 	 * Velvet Studio also pretends to be ST3, but writes zeroes for 'special'. ultraclick, and flags, and
 	 * does NOT save channel pannings. Also, it writes a fairly recognizable LRRL pattern for the channels,
 	 * but I'm not checking that. (yet?) */
@@ -393,7 +409,7 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 			tid = "Modplug Tracker";
 		} else if (special == 0 && uc == 0 && flags == 0 && misc == (S3M_UNSIGNED)) {
 			tid = "Velvet Studio";
-		} else if (uc != 8 && uc != 12 && uc != 16) {
+		} else if (uc != 16 && uc != 24 && uc != 32) {
 			// sure isn't scream tracker
 			tid = "Unknown tracker";
 		}
@@ -401,7 +417,12 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 	if (!tid) {
 		switch (trkvers >> 12) {
 		case 1:
-			tid = "Scream Tracker %d.%02x";
+			if (gus_addresses > 1)
+				tid = "Scream Tracker %d.%02x (GUS)";
+			else if (gus_addresses == 1 || !any_samples || trkvers == 0x1300)
+				tid = "Scream Tracker %d.%02x (SB)"; // could also be a GUS file with a single sample
+			else
+				tid = "Unknown tracker";
 			break;
 		case 2:
 			tid = "Imago Orpheus %d.%02x";
@@ -420,7 +441,10 @@ int fmt_s3m_load_song(song_t *song, slurp_t *fp, unsigned int lflags)
 			ver_decode_cwtv(trkvers, reserved, song->tracker_id + strlen(song->tracker_id));
 			break;
 		case 5:
-			tid = "OpenMPT %d.%02x";
+			if (trkvers >= 0x5129 && reserved)
+				sprintf(song->tracker_id, "OpenMPT %d.%02x.%02x.%02x", (trkvers & 0xf00) >> 8, trkvers & 0xff, (reserved >> 8) & 0xff, reserved & 0xff);
+			else
+				tid = "OpenMPT %d.%02x";
 			break;
 		}
 	}
@@ -898,7 +922,14 @@ int fmt_s3m_save_song(disko_t *fp, song_t *song)
 	hdr.gv = song->initial_global_volume / 2;
 	hdr.is = song->initial_speed;
 	hdr.it = song->initial_tempo;
-	hdr.mv = song->mixing_volume;
+
+	/* .S3M "MasterVolume" only supports 0x10 .. 0x7f,
+	 * if we save 0x80, the schism max volume, it becomes zero in S3M.
+	 * I didn't test to see what ScreamTracker does if a value below 0x10
+	 * is loaded into it, but its UI prevents setting below 0x10.
+	 * Just enforce both bounds here.
+	 */
+	hdr.mv = MIN(MAX(0x10, song->mixing_volume), 0x7f);
 	if (!(song->flags & SONG_NOSTEREO))
 		hdr.mv |= 128;
 	hdr.uc = 16; // ultraclick (the "Waste GUS channels" option)
@@ -964,7 +995,8 @@ int fmt_s3m_save_song(disko_t *fp, song_t *song)
 		para_sdata[n] = disko_tell(fp);
 		csf_write_sample(fp, smp, SF_LE | SF_PCMU
 			| ((smp->flags & CHN_16BIT) ? SF_16 : SF_8)
-			| ((smp->flags & CHN_STEREO) ? SF_SS : SF_M));
+			| ((smp->flags & CHN_STEREO) ? SF_SS : SF_M),
+			UINT32_MAX);
 	}
 
 	/* now that we're done adding stuff to the end of the file,
