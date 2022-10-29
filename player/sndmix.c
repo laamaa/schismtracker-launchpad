@@ -26,6 +26,7 @@
 #include "snd_fm.h"
 #include "snd_gm.h"
 #include "cmixer.h"
+#include "it.h"
 
 #include "util.h" /* for clamp */
 
@@ -798,10 +799,14 @@ unsigned int csf_read(song_t *csf, void * v_buffer, unsigned int bufsize)
 		}
 
 		// Handle eq
-		if (csf->mix_channels >= 2)
+		if (csf->mix_channels >= 2) {
 			eq_stereo(csf, csf->mix_buffer, count);
-		else
+			// FIXME: disable this when we're writing WAVs
+			if (!(csf->mix_flags & SNDMIX_DIRECTTODISK)) normalize_stereo(csf, csf->mix_buffer, count << 1);
+		} else {
 			eq_mono(csf, csf->mix_buffer, count);
+			if (!(csf->mix_flags & SNDMIX_DIRECTTODISK)) normalize_mono(csf, csf->mix_buffer, count);
+		}
 
 		mix_stat++;
 
@@ -810,6 +815,8 @@ unsigned int csf_read(song_t *csf, void * v_buffer, unsigned int bufsize)
 			as temp space for converting */
 			for (unsigned int n = 0; n < 64; n++) {
 				if (csf->multi_write[n].used) {
+					if (csf->mix_channels < 2)
+						mono_from_stereo(csf->multi_write[n].buffer, count);
 					unsigned int bytes = convert_func(buffer, csf->multi_write[n].buffer,
 						smpcount, vu_min, vu_max);
 					csf->multi_write[n].write(csf->multi_write[n].data, buffer, bytes);
