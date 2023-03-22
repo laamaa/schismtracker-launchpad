@@ -326,6 +326,7 @@ static inline void rn_process_envelope(song_voice_t *chan, int *nvol)
 	}
 
 	*nvol = vol;
+
 }
 
 
@@ -991,6 +992,7 @@ int csf_process_tick(song_t *csf)
 				csf_midi_out_note(nchan, m);
 
 			chan->row_note = m->note;
+			if (chan->row_note > 0 && chan->row_note < NOTE_FADE) chan->row_note = chan->row_note+csf->global_transpose;
 
 			if (m->instrument)
 				chan->last_instrument = m->instrument;
@@ -1183,6 +1185,10 @@ int csf_read_note(song_t *csf)
 			if (!(chan->flags & CHN_NOTEFADE))
 				rn_gen_key(csf, chan, cn, frequency, vol);
 
+			if (chan->flags & CHN_NEWNOTE) {
+				setup_channel_filter(chan, 1, 256, csf->mix_frequency);
+			}
+
 			// Filter Envelope: controls cutoff frequency
 			if (chan && chan->ptr_instrument && chan->ptr_instrument->flags & ENV_FILTER) {
 				setup_channel_filter(chan,
@@ -1239,6 +1245,8 @@ int csf_read_note(song_t *csf)
 			chan->left_volume = chan->right_volume = 0;
 			chan->length = 0;
 		}
+
+		chan->flags &= ~CHN_NEWNOTE;
 	}
 
 	// Checking Max Mix Channels reached: ordering by volume

@@ -47,6 +47,7 @@
 
 #include "snd_fm.h"
 #include "snd_gm.h"
+#include "util.h"
 
 // Default audio configuration
 // (XXX: Can DEF_SAMPLE_RATE be defined to 48000 everywhere?
@@ -710,6 +711,18 @@ int song_get_current_tick(void)
 int song_get_current_speed(void)
 {
 	return current_song->current_speed;
+}
+
+void song_set_global_transpose(int transpose)
+{
+	song_lock_audio();
+	current_song->global_transpose = CLAMP(transpose, -24, 24);
+	song_unlock_audio();
+}
+
+int song_get_global_transpose(void)
+{
+	return current_song->global_transpose;
 }
 
 void song_set_current_tempo(int new_tempo)
@@ -1484,6 +1497,9 @@ void song_init_modplug(void)
 {
 	song_lock_audio();
 
+	//initialize global transpose value
+	if (current_song->global_transpose) current_song->global_transpose = 0;
+	
 	max_voices = audio_settings.channel_limit;
 	csf_set_resampling_mode(current_song, audio_settings.interpolation_mode);
 	if (audio_settings.no_ramping)

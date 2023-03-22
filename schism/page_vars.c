@@ -32,7 +32,7 @@
 /* --------------------------------------------------------------------- */
 /* static variables */
 
-static struct widget widgets_vars[18];
+static struct widget widgets_vars[20];
 static const int group_control[] = { 8, 9, -1 };
 static const int group_playback[] = { 10, 11, -1 };
 static const int group_slides[] = { 12, 13, -1 };
@@ -52,7 +52,7 @@ static void song_vars_draw_const(void)
 	int n;
 
 	draw_box(16, 15, 43, 17, BOX_THIN | BOX_INNER | BOX_INSET);
-	draw_box(16, 18, 50, 21, BOX_THIN | BOX_INNER | BOX_INSET);
+	draw_box(16, 17, 50, 22, BOX_THIN | BOX_INNER | BOX_INSET);
 	draw_box(16, 22, 34, 28, BOX_THIN | BOX_INNER | BOX_INSET);
 	draw_box(12, 41, 78, 45, BOX_THICK | BOX_INNER | BOX_INSET);
 
@@ -60,8 +60,10 @@ static void song_vars_draw_const(void)
 
 	draw_text("Song Variables", 33, 13, 3, 2);
 	draw_text("Song Name", 7, 16, 0, 2);
-	draw_text("Initial Tempo", 3, 19, 0, 2);
-	draw_text("Initial Speed", 3, 20, 0, 2);
+	draw_text("Initial Tempo", 3, 18, 0, 2);
+	draw_text("Initial Speed", 3, 19, 0, 2);
+	draw_text("Current Tempo", 3, 20, 0, 2);
+	draw_text("Transpose", 3, 21, 0, 2);
 	draw_text("Global Volume", 3, 23, 0, 2);
 	draw_text("Mixing Volume", 3, 24, 0, 2);
 	draw_text("Separation", 6, 25, 0, 2);
@@ -94,6 +96,8 @@ static void update_values_in_song(void)
 {
 	song_set_initial_tempo(widgets_vars[1].d.thumbbar.value);
 	song_set_initial_speed(widgets_vars[2].d.thumbbar.value);
+	song_set_current_tempo(widgets_vars[18].d.thumbbar.value);
+	song_set_global_transpose(widgets_vars[19].d.thumbbar.value-24);
 	song_set_initial_global_volume(widgets_vars[3].d.thumbbar.value);
 	song_set_mixing_volume(widgets_vars[4].d.thumbbar.value);
 	song_set_separation(widgets_vars[5].d.thumbbar.value);
@@ -139,6 +143,8 @@ static void song_changed_cb(void)
 
 	widgets_vars[1].d.thumbbar.value = current_song->initial_tempo;
 	widgets_vars[2].d.thumbbar.value = current_song->initial_speed;
+	widgets_vars[18].d.thumbbar.value = current_song->current_tempo;
+	widgets_vars[19].d.thumbbar.value = current_song->global_transpose+24;
 	widgets_vars[3].d.thumbbar.value = current_song->initial_global_volume;
 	widgets_vars[4].d.thumbbar.value = current_song->mixing_volume;
 	widgets_vars[5].d.thumbbar.value = current_song->pan_separation;
@@ -192,18 +198,22 @@ void song_vars_load_page(struct page *page)
 	page->title = "Song Variables & Directory Configuration (F12)";
 	page->draw_const = song_vars_draw_const;
 	page->song_changed_cb = song_changed_cb;
-	page->total_widgets = 18;
+	page->total_widgets = 20;
 	page->widgets = widgets_vars;
 	page->help_index = HELP_GLOBAL;
 
 	/* 0 = song name */
 	create_textentry(widgets_vars, 17, 16, 26, 0, 1, 1, update_song_title, current_song->title, 25);
 	/* 1 = tempo */
-	create_thumbbar(widgets_vars + 1, 17, 19, 33, 0, 2, 2, update_values_in_song, 31, 255);
+	create_thumbbar(widgets_vars + 1, 17, 18, 33, 0, 2, 2, update_values_in_song, 31, 255);
 	/* 2 = speed */
-	create_thumbbar(widgets_vars + 2, 17, 20, 33, 1, 3, 3, update_values_in_song, 1, 255);
+	create_thumbbar(widgets_vars + 2, 17, 19, 33, 1, 18, 18, update_values_in_song, 1, 255);
+	/* 18 = current tempo */
+	create_thumbbar(widgets_vars + 18, 17, 20, 33, 2, 19, 19, update_values_in_song, 31, 255);
+	/* 19 = global transpose */
+	create_thumbbar(widgets_vars + 19, 17, 21, 33, 18, 3, 3, update_values_in_song, 0, 48);
 	/* 3 = global volume */
-	create_thumbbar(widgets_vars + 3, 17, 23, 17, 2, 4, 4, update_values_in_song, 0, 128);
+	create_thumbbar(widgets_vars + 3, 17, 23, 17, 19, 4, 4, update_values_in_song, 0, 128);
 	/* 4 = mixing volume */
 	create_thumbbar(widgets_vars + 4, 17, 24, 17, 3, 5, 5, update_values_in_song, 0, 128);
 	/* 5 = separation */

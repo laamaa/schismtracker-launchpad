@@ -1180,7 +1180,7 @@ void csf_instrument_change(song_t *csf, song_voice_t *chan, uint32_t instr, int 
 	uint32_t note = chan->new_note;
 
 	if (note == NOTE_NONE) {
-		/* nothing to see here */
+		return;
 	} else if (NOTE_IS_CONTROL(note)) {
 		/* nothing here either */
 	} else if (penv) {
@@ -1216,8 +1216,11 @@ void csf_instrument_change(song_t *csf, song_voice_t *chan, uint32_t instr, int 
 		}
 	}
 
-	if(penv && !inst_changed && psmp != oldsmp && chan->current_sample_data && !NOTE_IS_NOTE(note)) {
+	if (penv && !inst_changed && psmp != oldsmp && chan->current_sample_data && !NOTE_IS_NOTE(note)) {
 		return;
+	}
+	if (!penv && psmp != oldsmp && porta) {
+		chan->flags |= CHN_NEWNOTE;
 	}
 
 	// Reset envelopes
@@ -1349,7 +1352,7 @@ void csf_note_change(song_t *csf, uint32_t nchan, int note, int porta, int retri
 	if (NOTE_IS_CONTROL(note)) {
 		// hax: keep random sample numbers from triggering notes (see csf_instrument_change)
 		// NOTE_OFF is a completely arbitrary choice - this could be anything above NOTE_LAST
-		chan->new_note = NOTE_OFF;
+		chan->note = chan->new_note = NOTE_OFF;
 		switch (note) {
 		case NOTE_OFF:
 			fx_key_off(csf, nchan);
@@ -1436,7 +1439,7 @@ void csf_note_change(song_t *csf, uint32_t nchan, int note, int porta, int retri
 		chan->vu_meter = 0x0;
 		chan->strike = 4; /* this affects how long the initial hit on the playback marks lasts (bigger dot in instrument and sample list windows)*/
 		chan->flags &= ~CHN_FILTER;
-		chan->flags |= CHN_FASTVOLRAMP;
+		chan->flags |= CHN_FASTVOLRAMP | CHN_NEWNOTE;
 		if (!retrig) {
 			chan->autovib_depth = 0;
 			chan->autovib_position = 0;
@@ -1452,9 +1455,6 @@ void csf_note_change(song_t *csf, uint32_t nchan, int note, int porta, int retri
 		} else {
 			chan->vol_swing = chan->pan_swing = 0;
 		}
-
-		if (chan->cutoff < 0x7F)
-			setup_channel_filter(chan, 1, 256, csf->mix_frequency);
 	}
 }
 
@@ -2051,7 +2051,7 @@ void csf_process_effects(song_t *csf, int firsttick)
 			       || volcmd == VOLFX_TONEPORTAMENTO);
 		int start_note = csf->flags & SONG_FIRSTTICK;
 
-		chan->flags &= ~CHN_FASTVOLRAMP;
+		chan->flags &= ~(CHN_FASTVOLRAMP | CHN_NEWNOTE);
 
 		// set instrument before doing anything else
 		if (instr && start_note) chan->new_instrument = instr;
@@ -2096,6 +2096,15 @@ void csf_process_effects(song_t *csf, int firsttick)
 				} else {
 					if (instr < MAX_SAMPLES)
 						chan->volume = csf->samples[instr].volume;
+				}
+
+				if (csf->flags & SONG_INSTRUMENTMODE) {
+					if (instr < MAX_INSTRUMENTS && (chan->ptr_instrument != csf->instruments[instr] || !chan->increment))
+						note = chan->note;
+				} else
+				{
+					if (instr < MAX_SAMPLES && (chan->ptr_sample != &csf->samples[instr] || !chan->increment))
+						note = chan->note;
 				}
 			}
 			// Invalid Instrument ?
@@ -2142,9 +2151,11 @@ void csf_process_effects(song_t *csf, int firsttick)
 						csf->instruments[instr]->midi_bank,
 						csf->instruments[instr]->midi_channel_mask);
 
-				chan->new_instrument = 0;
-				if (NOTE_IS_NOTE(note) && psmp != chan->ptr_sample) {
-					chan->position = chan->position_frac = 0;
+				if (NOTE_IS_NOTE(note)) {
+					chan->new_instrument = 0;
+					if (psmp != chan->ptr_sample) {
+						chan->position = chan->position_frac = 0;
+					}
 				}
 			}
 			// New Note ?
