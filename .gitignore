@@ -3,6 +3,7 @@
 .deps/
 .dirstamp
 .vs/
+.cache/
 /Makefile
 /Makefile.in
 /aclocal.m4
