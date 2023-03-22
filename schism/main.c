@@ -58,6 +58,8 @@
 
 #include "launchpad.h"
 
+#include "gamecontrollers.h"
+
 #ifdef LCD
 #include "lcdcontrol.h"
 #endif
@@ -1069,6 +1071,7 @@ void schism_exit(int status)
 		song_unlock_audio();
 		
 		lp_resetall();
+		close_game_controllers();
 
 		// Clear to black on exit (nicer on Wii; I suppose it won't hurt elsewhere)
 		video_refresh();
@@ -1174,6 +1177,8 @@ int main(int argc, char **argv)
 	signal(SIGQUIT, exit);
 	signal(SIGTERM, exit);
 #endif
+
+	initialize_game_controllers();
 
 	video_mousecursor(cfg_video_mousecursor);
 	status_text_flash(" "); /* silence the mouse cursor message */

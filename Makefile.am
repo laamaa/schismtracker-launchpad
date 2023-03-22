@@ -347,6 +347,7 @@ schismtracker_SOURCES = \
 	schism/fakemem.c		\
 	schism/version.c		\
 	schism/launchpad.c		\
+	schism/gamecontrollers.c 	\
 	player/csndfile.c		\
 	player/mixutil.c		\
 	player/equalizer.c		\
