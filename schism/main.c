@@ -29,7 +29,6 @@
 
 #define NEED_TIME
 #include "headers.h"
-
 #include "event.h"
 
 #include "clippy.h"
@@ -101,9 +100,9 @@ static void display_print_info(void)
  * that NDEBUG is poorly named -- or that identifiers for settings in the
  * negative form are a bad idea?) */
 #if defined(NDEBUG)
-# define SDL_INIT_FLAGS SDL_INIT_TIMER | SDL_INIT_VIDEO
+# define SDL_INIT_FLAGS SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER
 #else
-# define SDL_INIT_FLAGS SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE
+# define SDL_INIT_FLAGS SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_NOPARACHUTE
 #endif
 
 static void sdl_init(void)
@@ -666,6 +665,8 @@ static void event_loop(void)
 
 		key_event_reset(&kk, kk.sx, kk.sy);
 
+		update_game_controllers();
+
 		sawrep = 0;
 		if (event.type == SDL_KEYDOWN || event.type == SDL_MOUSEBUTTONDOWN) {
 			kk.state = KEY_PRESS;
@@ -681,6 +682,12 @@ static void event_loop(void)
 			}
 		}
 		switch (event.type) {
+  		// Reinitialize game controllers on controller add/remove/remap
+	  	case SDL_CONTROLLERDEVICEADDED:
+	  	case SDL_CONTROLLERDEVICEREMOVED:
+	    initialize_game_controllers();
+	    break;
+
 		case SDL_AUDIODEVICEADDED:
 		case SDL_SYSWMEVENT:
 			/* todo... */
@@ -945,6 +952,8 @@ static void event_loop(void)
 						set_page(PAGE_HELP);
 					} else if (strcasecmp(event.user.data1, "pattern") == 0) {
 						set_page(PAGE_PATTERN_EDITOR);
+					} else if (strcasecmp(event.user.data1, "waterfall") == 0) {
+						set_page(PAGE_WATERFALL);
 					} else if (strcasecmp(event.user.data1, "orders") == 0) {
 						set_page(PAGE_ORDERLIST_PANNING);
 					} else if (strcasecmp(event.user.data1, "variables") == 0) {
@@ -988,7 +997,7 @@ static void event_loop(void)
 					}
 				};
 			} else {
-				printf("received unknown event %x\n", event.type);
+				//printf("received unknown event %x\n", event.type);
 			}
 			break;
 		}
