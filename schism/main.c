@@ -1173,6 +1173,8 @@ int main(int argc, char **argv)
 	shutdown_process |= EXIT_SDLQUIT;
 	os_sdlinit();
 
+	initialize_game_controllers();
+
 	display_init();
 	palette_apply();
 	font_init();
@@ -1186,8 +1188,6 @@ int main(int argc, char **argv)
 	signal(SIGQUIT, exit);
 	signal(SIGTERM, exit);
 #endif
-
-	initialize_game_controllers();
 
 	video_mousecursor(cfg_video_mousecursor);
 	status_text_flash(" "); /* silence the mouse cursor message */
