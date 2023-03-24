@@ -2,6 +2,8 @@
 #include "SDL_events.h"
 #include "SDL_keycode.h"
 #include "event.h"
+#include "time.h"
+#include "it.h"
 #include "log.h"
 #include "page.h"
 #include "sdlmain.h"
@@ -52,6 +54,18 @@ static void _push_keyboard_event(SDL_Keycode keycode) {
   SDL_PushEvent(&sdlevent);
   sdlevent.type = SDL_KEYUP;
   sdlevent.key.keysym.sym = keycode;
+  SDL_PushEvent(&sdlevent);
+}
+
+static void _push_keyboard_event_mod(SDL_Keycode keycode, SDL_Keymod mod) {
+  SDL_Event sdlevent = {};
+  sdlevent.type = SDL_KEYDOWN;
+  sdlevent.key.keysym.sym = keycode;
+  sdlevent.key.keysym.mod = mod;
+  SDL_PushEvent(&sdlevent);
+  sdlevent.type = SDL_KEYUP;
+  sdlevent.key.keysym.sym = keycode;
+  sdlevent.key.keysym.mod = mod;
   SDL_PushEvent(&sdlevent);
 }
 
@@ -246,40 +260,60 @@ void update_game_controllers() {
   // Read joysticks
   int key = handle_game_controller_buttons(&controller_config);
 
-  // Read special case game controller buttons quit and reset
-  /*  for (int gc = 0; gc < num_joysticks; gc++) {
-      if (SDL_GameControllerGetButton(game_controllers[gc],
-                                      controller_config.gamepad_quit) &&
-          (SDL_GameControllerGetButton(game_controllers[gc],
-                                       controller_config.gamepad_select) ||
-           SDL_GameControllerGetAxis(
-               game_controllers[gc],
-               controller_config.gamepad_analog_axis_select)))
-        key = (input_msg_s){special, msg_quit};
-    }
-  */
-
   if (key != prev_key) {
     switch (key) {
-    case key_select | key_right:
-      if (page < PAGE_MAX) {
-        page++;
-        switch_page(page);
+    case key_select | key_up: {
+      if (status.current_page == PAGE_ORDERLIST_VOLUMES ||
+          status.current_page == PAGE_ORDERLIST_PANNING) {
+        if (page < PAGE_MAX) {
+          page++;
+          switch_page(page);
+        }
       }
-      break;
-    case key_select | key_left:
+    } break;
+    case key_select | key_right: {
+      if (status.current_page == PAGE_ORDERLIST_VOLUMES ||
+          status.current_page == PAGE_ORDERLIST_PANNING) {
+        _push_keyboard_event(SDLK_g);
+      } else {
+        if (page < PAGE_MAX) {
+          page++;
+          switch_page(page);
+        }
+      }
+    } break;
+    case key_select | key_left: {
       if (page > 0) {
         page--;
         switch_page(page);
       }
-      break;
+    } break;
     case key_start: {
       if (song_get_mode() == MODE_PLAYING) {
         song_stop();
       } else {
-        song_start_at_order(song_get_current_order(), 0);
+        if (status.current_page == PAGE_ORDERLIST_VOLUMES ||
+            status.current_page == PAGE_ORDERLIST_PANNING) {
+          // On order list view, start from the pattern where the cursor is
+          _push_keyboard_event(SDLK_F7);
+        } else {
+          song_start_at_order(song_get_current_order(), 0);
+        }
       }
-      break;
+    } break;
+    case key_start | key_left: {
+      // On order list view: If the song is playing, queue the next order or if
+      // song is stopped, start from selected position
+      if (status.current_page == PAGE_ORDERLIST_VOLUMES ||
+          status.current_page == PAGE_ORDERLIST_PANNING) {
+        if (song_get_mode() == MODE_PLAYING) {
+          // If song is playing, queue the selected order (pressing CTRL+F7)
+          _push_keyboard_event_mod(SDLK_F7, KMOD_CTRL);
+        } else {
+          _push_keyboard_event(SDLK_F7);
+        }
+      }
+    } break;
     case key_edit:
       _push_keyboard_event(SDLK_RETURN);
       break;
@@ -298,6 +332,6 @@ void update_game_controllers() {
     default:
       break;
     }
-      prev_key = key;
-    }
+    prev_key = key;
   }
+}
